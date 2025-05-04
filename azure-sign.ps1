@@ -13,9 +13,13 @@ if ($signingProfile.type -ne 'azure') {
 }
 
 $secureSecret = Get-Content "$($ProfilePath -replace '\.json$')-kvs" | ConvertTo-SecureString
-$clientSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureSecret)
-)
+$clientSecretBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureSecret)
+try {
+    $clientSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($clientSecretBstr)
+}
+finally {
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($clientSecretBstr) | Out-Null
+}
 
 foreach ($file in $Files) {
     & $signingProfile.signToolPath sign `

@@ -6,19 +6,23 @@ param(
     [string[]]$Files
 )
 
-$profile = Get-Content $ProfilePath | ConvertFrom-Json
+$signingProfile = Get-Content $ProfilePath | ConvertFrom-Json
 
-if ($profile.type -ne 'local') {
+if ($signingProfile.type -ne 'local') {
     throw "Profile is not a local signing profile"
 }
 
 $securePassword = Get-Content "$($ProfilePath -replace '\.json$')-pwd" | ConvertTo-SecureString
-$password = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-)
+$passwordBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
+try {
+    $password = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($passwordBstr)
+}
+finally {
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordBstr) | Out-Null
+}
 
 foreach ($file in $Files) {
-    & $profile.signToolPath sign /f $profile.certificatePath /p $password $file
+    & $signingProfile.signToolPath sign /f $signingProfile.certificatePath /p $password $file
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to sign file: $file"
     }
