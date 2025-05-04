@@ -13,13 +13,9 @@ if ($signingProfile.type -ne 'local') {
 }
 
 $securePassword = Get-Content "$($ProfilePath -replace '\.json$')-pwd" | ConvertTo-SecureString
-$passwordBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
-try {
-    $password = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($passwordBstr)
-}
-finally {
-    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordBstr) | Out-Null
-}
+
+. $PSScriptRoot\common.ps1
+$password = Convert-SecureStringToPlainText -SecureString $securePassword
 
 foreach ($file in $Files) {
     & $signingProfile.signToolPath sign /f $signingProfile.certificatePath /p $password $file

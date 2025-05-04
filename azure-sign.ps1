@@ -13,13 +13,9 @@ if ($signingProfile.type -ne 'azure') {
 }
 
 $secureSecret = Get-Content "$($ProfilePath -replace '\.json$')-kvs" | ConvertTo-SecureString
-$clientSecretBstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureSecret)
-try {
-    $clientSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($clientSecretBstr)
-}
-finally {
-    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($clientSecretBstr) | Out-Null
-}
+
+. $PSScriptRoot\common.ps1
+$clientSecret = Convert-SecureStringToPlainText -SecureString $secureSecret
 
 foreach ($file in $Files) {
     & $signingProfile.signToolPath sign `
