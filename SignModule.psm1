@@ -152,13 +152,19 @@ function Remove-SignProfile {
     $config.profiles.Remove($ProfileName)
     Save-Config $config
 
-    if ($RemoveFile -or ($profilePath.StartsWith($script:PROFILES_DIR) -and 
-        (Read-Host "Do you want to delete the profile file? (Y/N)").ToUpper() -eq 'Y')) {
+    $isInProfilesDir = $profilePath.StartsWith($script:PROFILES_DIR)
+    if ($isInProfilesDir) {
         if (Test-Path $profilePath) {
             Remove-Item $profilePath -Force
         }
         # Remove secure input files
         Get-ChildItem $script:PROFILES_DIR -Filter "$ProfileName-*" | Remove-Item -Force
+    } elseif ($RemoveFile) {
+        if (Test-Path $profilePath) {
+            Remove-Item $profilePath -Force
+        }
+    } else {
+        Write-Output "Skipping removal of profile file at '$profilePath' as it is outside the profiles directory. Use -RemoveFile to force removal."
     }
 }
 
@@ -166,16 +172,29 @@ function Clear-SignProfiles {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [switch]$RemoveFiles
+        [switch]$RemoveFile
     )
 
     $config = Get-Config
+    
+    # Handle profiles outside of profiles directory first
+    $externalProfiles = $config.profiles.Values | Where-Object { -not $_.path.StartsWith($script:PROFILES_DIR) }
+    foreach ($profile in $externalProfiles) {
+        if ($RemoveFile) {
+            if (Test-Path $profile.path) {
+                Remove-Item $profile.path -Force
+            }
+        } else {
+            Write-Output "Skipping removal of external profile file at '$($profile.path)'. Use -RemoveFile to force removal."
+        }
+    }
+
+    # Always clean up profiles directory
+    Get-ChildItem $script:PROFILES_DIR -File | Remove-Item -Force
+
+    # Clear the configuration
     $config.profiles = @{}
     Save-Config $config
-
-    if ($RemoveFiles -or (Read-Host "Do you want to delete all profile files? (Y/N)").ToUpper() -eq 'Y') {
-        Get-ChildItem $script:PROFILES_DIR -File | Remove-Item -Force
-    }
 }
 
 function Export-SignedExecutable {
