@@ -1,4 +1,5 @@
 using namespace System.Security
+using namespace System.IO
 
 # Module variables
 $script:CONFIG_FILE = Join-Path $PSScriptRoot "config.json"
@@ -28,6 +29,13 @@ function Save-Config {
     $Config | ConvertTo-Json | Set-Content $script:CONFIG_FILE
 }
 
+function Test-ProfileName {
+    param([string]$ProfileName)
+    if ($ProfileName -notmatch '^[a-zA-Z0-9_\-]+$') {
+        throw "Profile name '$ProfileName' is invalid. Must contain only alphabetic, numeric, underscore and hyphen characters"
+    }
+}
+
 function Save-SecureInput {
     param(
         [Parameter(Mandatory)]
@@ -42,21 +50,17 @@ function Save-SecureInput {
         [Parameter(Mandatory)]
         [SecureString]$SecureInput
     )
+    Test-ProfileName -ProfileName $ProfileName
+
     if (-not $Config.profiles.ContainsKey($ProfileName)) {
         throw "Profile '$ProfileName' not found"
     }
 
-    $profilePath = $Config.profiles[$ProfileName].path
-    $isInProfilesDir = $profilePath.StartsWith($script:PROFILES_DIR)
+    $profileFolderPath = (Get-Item $Config.profiles[$ProfileName].path).Directory.FullName;
+    $secretFileName = "$ProfileName-$InputAlias";
+    $secretFilePath = Join-Path $profileFolderPath $secretFileName;
 
-    if ($isInProfilesDir) {
-        $secureFilePath = Join-Path $script:PROFILES_DIR "$ProfileName-$InputAlias"
-    } else {
-        # For external profiles, store secrets next to the profile file
-        $secureFilePath = $profilePath -replace '\.json$', "-$InputAlias"
-    }
-
-    $SecureInput | ConvertFrom-SecureString | Set-Content $secureFilePath
+    $SecureInput | ConvertFrom-SecureString | Set-Content $secretFilePath
 }
 
 function Get-SecureInput {
@@ -70,22 +74,18 @@ function Get-SecureInput {
         [Parameter(Mandatory)]
         [string]$InputAlias
     )
+    Test-ProfileName -ProfileName $ProfileName
+
     if (-not $Config.profiles.ContainsKey($ProfileName)) {
         throw "Profile '$ProfileName' not found"
     }
 
-    $profilePath = $Config.profiles[$ProfileName].path
-    $isInProfilesDir = $profilePath.StartsWith($script:PROFILES_DIR)
+    $profileFolderPath = (Get-Item $Config.profiles[$ProfileName].path).Directory.FullName;
+    $secretFileName = "$ProfileName-$InputAlias";
+    $secretFilePath = Join-Path $profileFolderPath $secretFileName;
 
-    if ($isInProfilesDir) {
-        $secureFilePath = Join-Path $script:PROFILES_DIR "$ProfileName-$InputAlias"
-    } else {
-        # For external profiles, look for secrets next to the profile file
-        $secureFilePath = $profilePath -replace '\.json$', "-$InputAlias"
-    }
-
-    if (Test-Path $secureFilePath) {
-        Get-Content $secureFilePath | ConvertTo-SecureString
+    if (Test-Path $secretFilePath) {
+        Get-Content $secretFilePath | ConvertTo-SecureString
     }
 }
 
@@ -102,6 +102,8 @@ function Add-SignProfile {
 
     Initialize-ModuleConfig
     $config = Get-Config
+
+    Test-ProfileName -ProfileName $ProfileName
 
     if ($config.profiles.ContainsKey($ProfileName)) {
         throw "Profile '$ProfileName' already exists"
@@ -182,27 +184,26 @@ function Remove-SignProfile {
         [Parameter()]
         [switch]$RemoveFile
     )
+    
+    Test-ProfileName -ProfileName $ProfileName
 
     $config = Get-Config
     if (-not $config.profiles.ContainsKey($ProfileName)) {
         throw "Profile '$ProfileName' not found"
     }
 
-    $profilePath = $config.profiles[$ProfileName].path
+    $profileFile = Get-Item $config.profiles[$ProfileName].path
+    $profilesDirectoryPath = (Get-Item $script:PROFILES_DIR).FullName;
+
     $config.profiles.Remove($ProfileName)
     Save-Config $config
 
-    $isInProfilesDir = $profilePath.StartsWith($script:PROFILES_DIR)
-    if ($isInProfilesDir) {
-        if (Test-Path $profilePath) {
-            Remove-Item $profilePath -Force
-        }
+    $isInProfilesDir = $profileFile.FullName.StartsWith($profilesDirectoryPath)
+    if ($isInProfilesDir -or $RemoveFile) {
+        $profileFile.Delete();
+
         # Remove secure input files
-        Get-ChildItem $script:PROFILES_DIR -Filter "$ProfileName-*" | Remove-Item -Force
-    } elseif ($RemoveFile) {
-        if (Test-Path $profilePath) {
-            Remove-Item $profilePath -Force
-        }
+        Get-ChildItem $profileFile.Directory.FullName -Filter "$ProfileName-*" | Remove-Item -Force
     } else {
         Write-Output "Skipping removal of profile file at '$profilePath' as it is outside the profiles directory. Use -RemoveFile to force removal."
     }
@@ -217,13 +218,18 @@ function Clear-SignProfiles {
 
     $config = Get-Config
     
+    $profilesDirectoryPath = (Get-Item $script:PROFILES_DIR).FullName;
+
     # Handle profiles outside of profiles directory first
-    $externalProfiles = $config.profiles.Values | Where-Object { -not $_.path.StartsWith($script:PROFILES_DIR) }
+    $externalProfiles = $config.profiles.Values | Where-Object { -not (Get-Item $_.path).FullName.StartsWith($profilesDirectoryPath) }
     foreach ($profile in $externalProfiles) {
         if ($RemoveFile) {
-            if (Test-Path $profile.path) {
-                Remove-Item $profile.path -Force
-            }
+            $profileFile = Get-Item $profile.path
+
+            $profileFile.Delete();
+
+            # Remove secure input files
+            Get-ChildItem $profileFile.Directory.FullName -Filter "$ProfileName-*" | Remove-Item -Force
         } else {
             Write-Output "Skipping removal of external profile file at '$($profile.path)'. Use -RemoveFile to force removal."
         }
