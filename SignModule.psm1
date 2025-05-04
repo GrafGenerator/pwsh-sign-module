@@ -30,20 +30,60 @@ function Save-Config {
 
 function Save-SecureInput {
     param(
+        [Parameter(Mandatory)]
+        [hashtable]$Config,
+
+        [Parameter(Mandatory)]
         [string]$ProfileName,
+
+        [Parameter(Mandatory)]
         [string]$InputAlias,
+
+        [Parameter(Mandatory)]
         [SecureString]$SecureInput
     )
-    $secureFilePath = Join-Path $script:PROFILES_DIR "$ProfileName-$InputAlias"
+    if (-not $Config.profiles.ContainsKey($ProfileName)) {
+        throw "Profile '$ProfileName' not found"
+    }
+
+    $profilePath = $Config.profiles[$ProfileName].path
+    $isInProfilesDir = $profilePath.StartsWith($script:PROFILES_DIR)
+
+    if ($isInProfilesDir) {
+        $secureFilePath = Join-Path $script:PROFILES_DIR "$ProfileName-$InputAlias"
+    } else {
+        # For external profiles, store secrets next to the profile file
+        $secureFilePath = $profilePath -replace '\.json$', "-$InputAlias"
+    }
+
     $SecureInput | ConvertFrom-SecureString | Set-Content $secureFilePath
 }
 
 function Get-SecureInput {
     param(
+        [Parameter(Mandatory)]
+        [hashtable]$Config,
+
+        [Parameter(Mandatory)]
         [string]$ProfileName,
+
+        [Parameter(Mandatory)]
         [string]$InputAlias
     )
-    $secureFilePath = Join-Path $script:PROFILES_DIR "$ProfileName-$InputAlias"
+    if (-not $Config.profiles.ContainsKey($ProfileName)) {
+        throw "Profile '$ProfileName' not found"
+    }
+
+    $profilePath = $Config.profiles[$ProfileName].path
+    $isInProfilesDir = $profilePath.StartsWith($script:PROFILES_DIR)
+
+    if ($isInProfilesDir) {
+        $secureFilePath = Join-Path $script:PROFILES_DIR "$ProfileName-$InputAlias"
+    } else {
+        # For external profiles, look for secrets next to the profile file
+        $secureFilePath = $profilePath -replace '\.json$', "-$InputAlias"
+    }
+
     if (Test-Path $secureFilePath) {
         Get-Content $secureFilePath | ConvertTo-SecureString
     }
@@ -81,7 +121,7 @@ function Add-SignProfile {
             $profileData.signToolPath = Read-Host "Enter path to local sign tool installation"
             $profileData.certificatePath = Read-Host "Enter path to local certificate"
             $securePassword = Read-Host "Enter certificate password" -AsSecureString
-            Save-SecureInput -ProfileName $ProfileName -InputAlias "pwd" -SecureInput $securePassword
+            Save-SecureInput -Config $config -ProfileName $ProfileName -InputAlias "pwd" -SecureInput $securePassword
         }
         else {
             $profileData.signToolPath = Read-Host "Enter path to azure sign tool installation"
@@ -90,7 +130,7 @@ function Add-SignProfile {
             $profileData.clientId = Read-Host "Enter client ID"
             $secureSecret = Read-Host "Enter client secret" -AsSecureString
             $profileData.certificateName = Read-Host "Enter certificate name"
-            Save-SecureInput -ProfileName $ProfileName -InputAlias "kvs" -SecureInput $secureSecret
+            Save-SecureInput -Config $config -ProfileName $ProfileName -InputAlias "kvs" -SecureInput $secureSecret
         }
 
         $ProfilePath = Join-Path $script:PROFILES_DIR "$ProfileName.json"
@@ -125,11 +165,11 @@ function Update-SignProfile {
 
     if ($profileData.type -eq 'local') {
         $securePassword = Read-Host "Enter new certificate password" -AsSecureString
-        Save-SecureInput -ProfileName $ProfileName -InputAlias "pwd" -SecureInput $securePassword
+        Save-SecureInput -Config $config -ProfileName $ProfileName -InputAlias "pwd" -SecureInput $securePassword
     }
     else {
         $secureSecret = Read-Host "Enter new client secret" -AsSecureString
-        Save-SecureInput -ProfileName $ProfileName -InputAlias "kvs" -SecureInput $secureSecret
+        Save-SecureInput -Config $config -ProfileName $ProfileName -InputAlias "kvs" -SecureInput $secureSecret
     }
 }
 
