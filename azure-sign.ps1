@@ -21,9 +21,9 @@ foreach ($file in $Files) {
     & $signingProfile.signToolPath sign `
         --azure-key-vault-url $signingProfile.keyVaultUrl `
         --azure-key-vault-certificate $signingProfile.certificateName `
-        --azure-tenant-id $signingProfile.tenantId `
-        --azure-client-id $signingProfile.clientId `
-        --azure-client-secret $clientSecret `
+        --azure-key-vault-tenant-id $signingProfile.tenantId `
+        --azure-key-vault-client-id $signingProfile.clientId `
+        --azure-key-vault-client-secret $clientSecret `
         $file
 
     if ($LASTEXITCODE -ne 0) {
