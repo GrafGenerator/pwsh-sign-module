@@ -29,7 +29,7 @@ foreach ($file in $Files) {
     
     # Add additional parameters if specified
     if ($signingProfile.PSObject.Properties.Name -contains "additionalParams" -and -not [string]::IsNullOrWhiteSpace($signingProfile.additionalParams)) {
-        Write-Verbose "Using additional parameters: $($signingProfile.additionalParams)"
+        Write-Output "Using additional parameters: $($signingProfile.additionalParams)"
         $additionalParamsArray = $signingProfile.additionalParams -split ' '
         $signCommand += $additionalParamsArray
     }
