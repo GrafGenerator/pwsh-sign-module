@@ -18,13 +18,26 @@ $secureSecret = Get-Content "$($ProfilePath -replace '\.json$')-kvs" | ConvertTo
 $clientSecret = Convert-SecureStringToPlainText -SecureString $secureSecret
 
 foreach ($file in $Files) {
-    & $signingProfile.signToolPath sign `
-        --azure-key-vault-url $signingProfile.keyVaultUrl `
-        --azure-key-vault-certificate $signingProfile.certificateName `
-        --azure-key-vault-tenant-id $signingProfile.tenantId `
-        --azure-key-vault-client-id $signingProfile.clientId `
-        --azure-key-vault-client-secret $clientSecret `
-        $file
+    $signCommand = @(
+        "sign",
+        "--azure-key-vault-url", $signingProfile.keyVaultUrl,
+        "--azure-key-vault-certificate", $signingProfile.certificateName,
+        "--azure-key-vault-tenant-id", $signingProfile.tenantId,
+        "--azure-key-vault-client-id", $signingProfile.clientId,
+        "--azure-key-vault-client-secret", $clientSecret
+    )
+    
+    # Add additional parameters if specified
+    if ($signingProfile.PSObject.Properties.Name -contains "additionalParams" -and -not [string]::IsNullOrWhiteSpace($signingProfile.additionalParams)) {
+        Write-Verbose "Using additional parameters: $($signingProfile.additionalParams)"
+        $additionalParamsArray = $signingProfile.additionalParams -split ' '
+        $signCommand += $additionalParamsArray
+    }
+    
+    # Add the file to sign
+    $signCommand += $file
+    
+    & $signingProfile.signToolPath $signCommand
 
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to sign file: $file"

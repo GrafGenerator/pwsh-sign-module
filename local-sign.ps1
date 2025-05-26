@@ -18,7 +18,24 @@ $securePassword = Get-Content "$($ProfilePath -replace '\.json$')-pwd" | Convert
 $password = Convert-SecureStringToPlainText -SecureString $securePassword
 
 foreach ($file in $Files) {
-    & $signingProfile.signToolPath sign /f $signingProfile.certificatePath /p $password $file
+    $signCommand = @(
+        "sign",
+        "/f", $signingProfile.certificatePath,
+        "/p", $password
+    )
+    
+    # Add additional parameters if specified
+    if ($signingProfile.PSObject.Properties.Name -contains "additionalParams" -and -not [string]::IsNullOrWhiteSpace($signingProfile.additionalParams)) {
+        Write-Verbose "Using additional parameters: $($signingProfile.additionalParams)"
+        $additionalParamsArray = $signingProfile.additionalParams -split ' '
+        $signCommand += $additionalParamsArray
+    }
+    
+    # Add the file to sign
+    $signCommand += $file
+    
+    & $signingProfile.signToolPath $signCommand
+    
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to sign file: $file"
     }

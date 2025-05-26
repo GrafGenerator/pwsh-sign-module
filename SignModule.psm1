@@ -119,6 +119,11 @@ function Add-SignProfile {
             
             $securePassword = Read-Host "Enter certificate password" -AsSecureString
             Save-SecureInput -ProfileName $ProfileName -ProfilePath $targetProfilePath -InputAlias "pwd" -SecureInput $securePassword
+            
+            $additionalParams = Read-Host "Enter additional parameters for sign tool (e.g., '/tr http://timestamp.server' - optional)"
+            if (-not [string]::IsNullOrWhiteSpace($additionalParams)) {
+                $profileData.additionalParams = $additionalParams
+            }
         }
         else {
             $profileData.signToolPath = Read-Host "Enter path to azure sign tool installation"
@@ -129,6 +134,11 @@ function Add-SignProfile {
 
             $secureSecret = Read-Host "Enter client secret" -AsSecureString
             Save-SecureInput -ProfileName $ProfileName -ProfilePath $targetProfilePath -InputAlias "kvs" -SecureInput $secureSecret
+            
+            $additionalParams = Read-Host "Enter additional parameters for sign tool (e.g., '-tr http://timestamp.server' - optional)"
+            if (-not [string]::IsNullOrWhiteSpace($additionalParams)) {
+                $profileData.additionalParams = $additionalParams
+            }
         }
 
         $profileData | ConvertTo-Json | Set-Content $targetProfilePath
@@ -161,15 +171,50 @@ function Update-SignProfile {
     }
 
     $profilePath = $config.profiles[$ProfileName].path
-    $profileData = Get-Content $profilePath | ConvertFrom-Json
+    $profileData = Get-Content $profilePath | ConvertFrom-Json -AsHashtable
+    $updateMade = $false
 
     if ($profileData.type -eq 'local') {
-        $securePassword = Read-Host "Enter new certificate password" -AsSecureString
-        Save-SecureInput -ProfileName $ProfileName -ProfilePath $profilePath -InputAlias "pwd" -SecureInput $securePassword
+        $updateSecret = Read-Host "Update certificate password? (y/n)"
+        if ($updateSecret -eq 'y') {
+            $securePassword = Read-Host "Enter new certificate password" -AsSecureString
+            Save-SecureInput -ProfileName $ProfileName -ProfilePath $profilePath -InputAlias "pwd" -SecureInput $securePassword
+            $updateMade = $true
+        }
     }
     else {
-        $secureSecret = Read-Host "Enter new client secret" -AsSecureString
-        Save-SecureInput -ProfileName $ProfileName -ProfilePath $profilePath -InputAlias "kvs" -SecureInput $secureSecret
+        $updateSecret = Read-Host "Update client secret? (y/n)"
+        if ($updateSecret -eq 'y') {
+            $secureSecret = Read-Host "Enter new client secret" -AsSecureString
+            Save-SecureInput -ProfileName $ProfileName -ProfilePath $profilePath -InputAlias "kvs" -SecureInput $secureSecret
+            $updateMade = $true
+        }
+    }
+    
+    $updateParams = Read-Host "Update additional parameters? (y/n)"
+    if ($updateParams -eq 'y') {
+        $currentParams = if ($profileData.ContainsKey('additionalParams')) { $profileData.additionalParams } else { "" }
+        Write-Host "Current additional parameters: $currentParams"
+        $additionalParams = Read-Host "Enter new additional parameters (leave empty to remove)"
+        
+        if ([string]::IsNullOrWhiteSpace($additionalParams)) {
+            if ($profileData.ContainsKey('additionalParams')) {
+                $profileData.Remove('additionalParams')
+                $updateMade = $true
+            }
+        }
+        else {
+            $profileData.additionalParams = $additionalParams
+            $updateMade = $true
+        }
+    }
+    
+    if ($updateMade) {
+        $profileData | ConvertTo-Json | Set-Content $profilePath
+        Write-Host "Profile '$ProfileName' updated successfully"
+    }
+    else {
+        Write-Host "No changes made to profile '$ProfileName'"
     }
 }
 
