@@ -81,40 +81,8 @@ Describe "Export-SignedExecutable" {
         # Save config
         $config | ConvertTo-Json | Set-Content $TestConfigPath
         
-        # Create mock signing scripts
-        $localSignScriptPath = Join-Path $scriptsDir "local-sign.ps1"
-        $localSignScriptContent = @'
-param(
-    [Parameter(Mandatory)]
-    [string]$ProfilePath,
-    
-    [Parameter(Mandatory)]
-    [string[]]$Files
-)
-# Mock script for testing
-Write-Output "Mock local signing with profile: $ProfilePath"
-foreach ($file in $Files) {
-    Write-Output "Mock signing file: $file"
-}
-'@
-        $localSignScriptContent | Set-Content -Path $localSignScriptPath
-        
-        $azureSignScriptPath = Join-Path $scriptsDir "azure-sign.ps1"
-        $azureSignScriptContent = @'
-param(
-    [Parameter(Mandatory)]
-    [string]$ProfilePath,
-    
-    [Parameter(Mandatory)]
-    [string[]]$Files
-)
-# Mock script for testing
-Write-Output "Mock Azure signing with profile: $ProfilePath"
-foreach ($file in $Files) {
-    Write-Output "Mock signing file: $file"
-}
-'@
-        $azureSignScriptContent | Set-Content -Path $azureSignScriptPath
+        # Mock script file creation has been removed to prevent overwriting original scripts.
+        # Script invocation will be mocked directly in relevant tests using Pester's Mock command.
         
         # Mock Write-Error to capture errors
         Mock Write-Error {}
@@ -154,44 +122,78 @@ foreach ($file in $Files) {
     Context "When using a local profile" {
         It "Calls the local signing script with correct parameters" {
             $testExePath = Join-Path $TestDataPath "files\test.exe"
+            $profileJsonPath = Join-Path $TestProfilesDir "localProfile.json" 
+            $expectedLocalScriptPath = Join-Path $ModuleRoot "Scripts\local-sign.ps1"
             
-            # Mock the script call
-            Mock Invoke-Expression {
-                param($Command)
-                # Just capture the command, don't execute it
-                return "Mocked: $Command"
+            $script:calledScriptPathFromMock = $null
+            $script:actualProfilePathFromMock = $null
+            $script:actualFilesFromMock = $null
+            
+            Mock & {
+                param($command) # First argument is the command
+                $passedArgs = $args[1..($args.Length-1)]
+
+                if ($command -eq $expectedLocalScriptPath) {
+                    $script:calledScriptPathFromMock = $command
+                    $params = @{}
+                    for ($i = 0; $i -lt $passedArgs.Length; $i += 2) {
+                        $paramName = $passedArgs[$i].ToLower().TrimStart('-')
+                        $params[$paramName] = $passedArgs[$i+1]
+                    }
+                    $script:actualProfilePathFromMock = $params['profilepath']
+                    $script:actualFilesFromMock = $params['files']
+                    Write-Output "Mocked local-sign.ps1 called for $($params['files'])"
+                    $global:LASTEXITCODE = 0 
+                } else {
+                    Microsoft.PowerShell.Core\& $args
+                }
             }
             
-            # Call function
             Export-SignedExecutable -ProfileName "localProfile" -Files $testExePath
             
-            # Since we can't easily mock script invocation via &, we'll just verify
-            # that the correct script exists and would be called
-            $localProfilePath = Join-Path $TestProfilesDir "localProfile.json"
-            $localSignScriptPath = Join-Path $ModuleRoot "Scripts\local-sign.ps1"
-            Test-Path $localSignScriptPath | Should -Be $true
+            $script:calledScriptPathFromMock | Should -Be $expectedLocalScriptPath
+            $script:actualProfilePathFromMock | Should -Be $profileJsonPath
+            $script:actualFilesFromMock | Should -BeExactly @($testExePath)
+            Should -Not -Invoke Write-Error
         }
     }
     
     Context "When using an azure profile" {
         It "Calls the azure signing script with correct parameters" {
             $testExePath = Join-Path $TestDataPath "files\test.exe"
-            
-            # Mock the script call
-            Mock Invoke-Expression {
-                param($Command)
-                # Just capture the command, don't execute it
-                return "Mocked: $Command"
+            $profileJsonPath = Join-Path $TestProfilesDir "azureProfile.json"
+            $expectedAzureScriptPath = Join-Path $ModuleRoot "Scripts\azure-sign.ps1"
+
+            $script:calledScriptPathFromMock = $null
+            $script:actualProfilePathFromMock = $null
+            $script:actualFilesFromMock = $null
+
+            Mock & {
+                param($command) # First argument is the command
+                $passedArgs = $args[1..($args.Length-1)]
+
+                if ($command -eq $expectedAzureScriptPath) {
+                    $script:calledScriptPathFromMock = $command
+                    $params = @{}
+                    for ($i = 0; $i -lt $passedArgs.Length; $i += 2) {
+                        $paramName = $passedArgs[$i].ToLower().TrimStart('-')
+                        $params[$paramName] = $passedArgs[$i+1]
+                    }
+                    $script:actualProfilePathFromMock = $params['profilepath']
+                    $script:actualFilesFromMock = $params['files']
+                    Write-Output "Mocked azure-sign.ps1 called for $($params['files'])"
+                    $global:LASTEXITCODE = 0 
+                } else {
+                    Microsoft.PowerShell.Core\& $args
+                }
             }
-            
-            # Call function
+
             Export-SignedExecutable -ProfileName "azureProfile" -Files $testExePath
-            
-            # Since we can't easily mock script invocation via &, we'll just verify
-            # that the correct script exists and would be called
-            $azureProfilePath = Join-Path $TestProfilesDir "azureProfile.json"
-            $azureSignScriptPath = Join-Path $ModuleRoot "Scripts\azure-sign.ps1"
-            Test-Path $azureSignScriptPath | Should -Be $true
+
+            $script:calledScriptPathFromMock | Should -Be $expectedAzureScriptPath
+            $script:actualProfilePathFromMock | Should -Be $profileJsonPath
+            $script:actualFilesFromMock | Should -BeExactly @($testExePath)
+            Should -Not -Invoke Write-Error
         }
     }
 }
