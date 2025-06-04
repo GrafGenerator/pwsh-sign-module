@@ -2,16 +2,6 @@ BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
     
-    # We'll need to mock the common script functions
-    function Convert-SecureStringToPlainText {
-        param(
-            [Parameter(Mandatory)]
-            [System.Security.SecureString]$SecureString
-        )
-        
-        return "MockPassword"
-    }
-    
     # Setup test variables
     $script:TestProfilesDir = Join-Path $TestDataPath "profiles"
     $script:TestFilesDir = Join-Path $TestDataPath "files"
@@ -57,6 +47,13 @@ BeforeAll {
 Describe "Local-Sign Script" {
     BeforeEach {
         # Set up the test for each context
+        Mock Convert-SecureStringToPlainText {
+            param(
+                [System.Security.SecureString]$SecureString
+            )
+            return "MockPassword"
+        }
+
         Mock Get-Content {
             if ($Path -like "*-pwd") {
                 # Mock for secure password file
@@ -108,28 +105,44 @@ Describe "Local-Sign Script" {
     
     Context "Signing a single file" {
         It "Calls the sign tool with correct parameters" {
-            # Create a block to capture the parameters
-            $capturedArgs = $null
+            $script:capturedCommand = $null
+            $script:capturedSignToolArgs = $null
             
-            # Mock the & operator to capture parameters
             Mock & {
-                $capturedArgs = $args
-                $global:LASTEXITCODE = 0
-                return "Successfully signed"
+                param($command) # First argument is the command
+                $passedArgs = $args[1..($args.Length-1)]
+
+                if ($command -eq $testProfileData.signToolPath) {
+                    $script:capturedCommand = $command
+                    $script:capturedSignToolArgs = $passedArgs
+                    $global:LASTEXITCODE = 0
+                    return "Successfully signed"
+                } elseif ($command -like "*.ps1") { # Allow .ps1 scripts (like common.ps1) to be dot-sourced
+                    Microsoft.PowerShell.Core\& $args
+                }
+                # Other commands can be handled or ignored as needed for the test context
             }
             
             # Run the script
             { . "$ModuleRoot\Scripts\local-sign.ps1" -ProfilePath $TestProfilePath -Files $TestFile1 } | Should -Not -Throw
             
-            # We can't directly check the arguments passed to the & operator in Pester
-            # So this is a best effort to validate the script ran without errors
+            # Verify SignTool.exe was called
+            $script:capturedCommand | Should -Be $testProfileData.signToolPath
+
+            # Verify arguments passed to SignTool.exe
+            # Expected: sign /f C:\Test\Certificate.pfx /p MockPassword /tr http://timestamp.test C:\projects\grafg\powershell\pwsh-sign-module\Tests\TestData\files\test1.exe
+            $script:capturedSignToolArgs | Should -Contain "sign"
+            $script:capturedSignToolArgs | Should -Contain "/f"
+            $script:capturedSignToolArgs | Should -Contain $testProfileData.certificatePath
+            $script:capturedSignToolArgs | Should -Contain "/p"
+            $script:capturedSignToolArgs | Should -Contain "MockPassword" # From the mocked Convert-SecureStringToPlainText
+            $script:capturedSignToolArgs | Should -Contain ($testProfileData.additionalParams -split ' ')[0] # First part of additional params
+            $script:capturedSignToolArgs | Should -Contain ($testProfileData.additionalParams -split ' ')[1] # Second part of additional params
+            $script:capturedSignToolArgs | Should -Contain $TestFile1
             
-            # Verify Write-Error was not called
             Should -Not -Invoke Write-Error
-            
-            # Verify Write-Output was called for success
             Should -Invoke Write-Output -ParameterFilter {
-                $InputObject -like "*Successfully signed*"
+                $InputObject -like "*Successfully signed file: $TestFile1*"
             }
         }
     }

@@ -122,8 +122,7 @@ Describe "Export-SignedExecutable" {
     Context "When using a local profile" {
         It "Calls the local signing script with correct parameters" {
             $testExePath = Join-Path $TestDataPath "files\test.exe"
-            $profileJsonPath = Join-Path $TestProfilesDir "localProfile.json" 
-            $expectedLocalScriptPath = Join-Path $ModuleRoot "Scripts\local-sign.ps1"
+            $localSignScriptPath = Join-Path $ModuleRoot "Scripts\local-sign.ps1"
             
             $script:calledScriptPathFromMock = $null
             $script:actualProfilePathFromMock = $null
@@ -133,7 +132,7 @@ Describe "Export-SignedExecutable" {
                 param($command) # First argument is the command
                 $passedArgs = $args[1..($args.Length-1)]
 
-                if ($command -eq $expectedLocalScriptPath) {
+                if ($command -eq $localSignScriptPath) {
                     $script:calledScriptPathFromMock = $command
                     $params = @{}
                     for ($i = 0; $i -lt $passedArgs.Length; $i += 2) {
@@ -151,8 +150,8 @@ Describe "Export-SignedExecutable" {
             
             Export-SignedExecutable -ProfileName "localProfile" -Files $testExePath
             
-            $script:calledScriptPathFromMock | Should -Be $expectedLocalScriptPath
-            $script:actualProfilePathFromMock | Should -Be $profileJsonPath
+            $script:calledScriptPathFromMock | Should -Be $localSignScriptPath
+            $script:actualProfilePathFromMock | Should -Be (Join-Path $TestProfilesDir "localProfile.json")
             $script:actualFilesFromMock | Should -BeExactly @($testExePath)
             Should -Not -Invoke Write-Error
         }
@@ -161,8 +160,7 @@ Describe "Export-SignedExecutable" {
     Context "When using an azure profile" {
         It "Calls the azure signing script with correct parameters" {
             $testExePath = Join-Path $TestDataPath "files\test.exe"
-            $profileJsonPath = Join-Path $TestProfilesDir "azureProfile.json"
-            $expectedAzureScriptPath = Join-Path $ModuleRoot "Scripts\azure-sign.ps1"
+            $azureSignScriptPath = Join-Path $ModuleRoot "Scripts\azure-sign.ps1"
 
             $script:calledScriptPathFromMock = $null
             $script:actualProfilePathFromMock = $null
@@ -172,7 +170,7 @@ Describe "Export-SignedExecutable" {
                 param($command) # First argument is the command
                 $passedArgs = $args[1..($args.Length-1)]
 
-                if ($command -eq $expectedAzureScriptPath) {
+                if ($command -eq $azureSignScriptPath) {
                     $script:calledScriptPathFromMock = $command
                     $params = @{}
                     for ($i = 0; $i -lt $passedArgs.Length; $i += 2) {
@@ -190,8 +188,8 @@ Describe "Export-SignedExecutable" {
 
             Export-SignedExecutable -ProfileName "azureProfile" -Files $testExePath
 
-            $script:calledScriptPathFromMock | Should -Be $expectedAzureScriptPath
-            $script:actualProfilePathFromMock | Should -Be $profileJsonPath
+            $script:calledScriptPathFromMock | Should -Be $azureSignScriptPath
+            $script:actualProfilePathFromMock | Should -Be (Join-Path $TestProfilesDir "azureProfile.json")
             $script:actualFilesFromMock | Should -BeExactly @($testExePath)
             Should -Not -Invoke Write-Error
         }
