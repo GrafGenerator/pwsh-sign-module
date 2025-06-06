@@ -1,3 +1,5 @@
 profiles
 config.json
+
 Tests/TestData/files
+testResults.xml
