@@ -17,29 +17,29 @@ $securePassword = Get-Content "$($ProfilePath -replace '\.json$')-pwd" | Convert
 . $PSScriptRoot\common.ps1
 $password = Convert-SecureStringToPlainText -SecureString $securePassword
 
-foreach ($file in $Files) {
-    $signCommand = @(
-        "sign",
-        "/f", $signingProfile.certificatePath,
-        "/p", $password
-    )
-    
-    # Add additional parameters if specified
-    if ($signingProfile.PSObject.Properties.Name -contains "additionalParams" -and -not [string]::IsNullOrWhiteSpace($signingProfile.additionalParams)) {
-        Write-Output "Using additional parameters: $($signingProfile.additionalParams)"
-        $additionalParamsArray = $signingProfile.additionalParams -split ' '
-        $signCommand += $additionalParamsArray
-    }
-    
-    # Add the file to sign
-    $signCommand += $file
-    
-    & $signingProfile.signToolPath $signCommand
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to sign file: $file"
-    }
-    else {
-        Write-Output "Successfully signed file: $file"
-    }
+$signCommand = @(
+    "sign",
+    "/f", $signingProfile.certificatePath,
+    "/p", $password
+)
+
+# Add additional parameters if specified
+if ($signingProfile.PSObject.Properties.Name -contains "additionalParams" -and -not [string]::IsNullOrWhiteSpace($signingProfile.additionalParams)) {
+    Write-Output "Using additional parameters: $($signingProfile.additionalParams)"
+    $additionalParamsArray = $signingProfile.additionalParams -split ' '
+    $signCommand += $additionalParamsArray
+}
+
+# Add the file to sign
+$fileString = $Files -join ' '
+$signCommand += $fileString
+
+$command = "& `"$($signingProfile.signToolPath)`" $signCommand"
+Invoke-Expression $command
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Failed to sign files: $fileString"
+}
+else {
+    Write-Output "Successfully signed files: $fileString"
 }
