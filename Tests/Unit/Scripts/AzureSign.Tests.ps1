@@ -2,98 +2,80 @@ BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
     
-    # We'll need to mock the common script functions
-    function Convert-SecureStringToPlainText {
-        param(
-            [Parameter(Mandatory)]
-            [System.Security.SecureString]$SecureString
-        )
-        
-        return "MockClientSecret"
-    }
-    
-    # Setup test variables
-    $script:TestProfilesDir = Join-Path $TestDataPath "profiles"
-    $script:TestFilesDir = Join-Path $TestDataPath "files"
-    
-    # Create test directories
-    New-Item -Path $TestProfilesDir -ItemType Directory -Force | Out-Null
-    New-Item -Path $TestFilesDir -ItemType Directory -Force | Out-Null
-    
+    . $script:ScriptsPath\common.ps1
+
+    Initialize-TestEnvironment
+
     # Create test profile
-    $script:TestProfilePath = Join-Path $TestProfilesDir "testAzureProfile.json"
-    $testProfileData = @{
-        type = "azure"
-        signToolPath = "C:\Test\AzureSignTool.exe"
-        keyVaultUrl = "https://testvault.vault.azure.net/"
-        tenantId = "00000000-0000-0000-0000-000000000000"
-        clientId = "11111111-1111-1111-1111-111111111111"
-        certificateName = "TestCert"
-        additionalParams = "-tr http://timestamp.test"
-    }
-    $testProfileData | ConvertTo-Json | Set-Content $TestProfilePath
-    
+    $script:TestProfilePath = Join-Path $script:TestProfilesDir "testAzureProfile.json"
+    $script:TestSignToolPath = Join-Path $script:TestHelpersPath "SignToolHelper.ps1"
+
+    $testSecret = "MockSecureClientSecret"
+    $testSecretSecureString = ConvertTo-SecureString -String $testSecret -AsPlainText -Force
+
     # Create test client secret file
-    $testSecretPath = Join-Path $TestProfilesDir "testAzureProfile-kvs"
-    "MockSecureClientSecret" | Set-Content $testSecretPath
-    
-    # Create test files
-    $script:TestFile1 = Join-Path $TestFilesDir "test1.exe"
-    $script:TestFile2 = Join-Path $TestFilesDir "test2.exe"
-    "Test file 1" | Set-Content $TestFile1
-    "Test file 2" | Set-Content $TestFile2
+    $testSecretPath = Join-Path $script:TestProfilesDir "testAzureProfile-kvs"
+    $testSecret | Set-Content $testSecretPath
+
+    # Test file names
+    $script:TestFile1 = Join-Path $script:TestFilesDir "test1.exe"
+    $script:TestFile2 = Join-Path $script:TestFilesDir "test2.exe"
     
     # Mock external commands
     Mock Write-Error {}
     Mock Write-Output {}
 }
 
+AfterAll {
+    Remove-TestEnvironment
+}
+
 Describe "Azure-Sign Script" {
     BeforeEach {
-        # Set up the test for each context
-        Mock Get-Content {
-            if ($Path -like "*-kvs") {
-                # Mock for secure client secret file
-                return "MockSecureClientSecret"
-            }
-            else {
-                # Mock for profile file
-                return $testProfileData | ConvertTo-Json
-            }
+        $tempSignResultFile = Join-Path $script:TempPath "testLocalProfile-signResult-$(New-Guid).txt"
+    
+        $additionalParam1 = "-tr"
+        $additionalParam2 = "http://timestamp.test"
+        
+        # Create test profile
+        $testProfileData = @{
+            type = "azure"
+            signToolPath = $script:TestSignToolPath
+            keyVaultUrl = "https://testvault.vault.azure.net/"
+            tenantId = "00000000-0000-0000-0000-000000000000"
+            clientId = "11111111-1111-1111-1111-111111111111"
+            certificateName = "TestCert"
+            additionalParams = "$additionalParam1 $additionalParam2 --testOutFile $tempSignResultFile"
         }
+        $testProfileData | ConvertTo-Json | Set-Content $script:TestProfilePath
+
         
-        # Reset LASTEXITCODE before each test
-        $global:LASTEXITCODE = 0
-        
-        # Mock the & operator
-        Mock & { 
-            # Capture the parameters
-            $cmdLine = $args -join " "
-            
-            # Check if we're calling the sign tool
-            if ($cmdLine -like "*AzureSignTool.exe*") {
-                $global:LASTEXITCODE = 0
-                return "Successfully signed"
-            }
-            
-            # Default handling for other commands
-            return & $args[0] $args[1..$args.Length]
+
+        # Set up the test for each context
+        Mock Convert-SecureStringToPlainText {
+            param(
+                [System.Security.SecureString]$SecureString
+            )
+            return $testSecret
+        }
+
+        Mock ConvertTo-SecureString {
+            return $testSecretSecureString
         }
     }
     
+    AfterEach {
+        Remove-Item $tempSignResultFile -ErrorAction SilentlyContinue
+    }
+
     Context "Parameter validation" {
         It "Throws if profile is not an azure profile" {
             # Create a local profile for testing
-            $localProfilePath = Join-Path $TestProfilesDir "localProfile.json"
+            $localProfilePath = Join-Path $script:TestProfilesDir "localProfile.json"
             @{
                 type = "local"
-                signToolPath = "C:\Test\SignTool.exe"
+                signToolPath = $script:TestSignToolPath
             } | ConvertTo-Json | Set-Content $localProfilePath
-            
-            # Mock to return the local profile
-            Mock Get-Content {
-                return @{ type = "local" } | ConvertTo-Json
-            } -ParameterFilter { $Path -eq $localProfilePath }
             
             # Test script with local profile - should throw
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $localProfilePath -Files $TestFile1 } | Should -Throw "*not an Azure signing profile*"
@@ -102,23 +84,36 @@ Describe "Azure-Sign Script" {
     
     Context "Signing a single file" {
         It "Calls the sign tool with correct parameters" {
-            # Create a block to capture the parameters
-            $capturedArgs = $null
-            
-            # Mock the & operator to capture parameters
-            Mock & {
-                $capturedArgs = $args
-                $global:LASTEXITCODE = 0
-                return "Successfully signed"
-            }
-            
             # Run the script
-            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $TestProfilePath -Files $TestFile1 } | Should -Not -Throw
+            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
             
-            # Verify Write-Error was not called
+            $capturedSignToolArgs = @()
+            foreach($line in [System.IO.File]::ReadLines($tempSignResultFile)) {
+                $capturedSignToolArgs += $line
+            }
+
+            $capturedCommand = $capturedSignToolArgs[0]
+
+            # Verify SignTool.exe was called
+            $capturedCommand | Should -Be $testProfileData.signToolPath
+
+            # Verify arguments passed to SignTool.exe
+            $capturedSignToolArgs | Should -Contain "sign"
+            $capturedSignToolArgs | Should -Contain "--azure-key-vault-url"
+            $capturedSignToolArgs | Should -Contain $testProfileData.keyVaultUrl
+            $capturedSignToolArgs | Should -Contain "--azure-key-vault-certificate"
+            $capturedSignToolArgs | Should -Contain $testProfileData.certificateName
+            $capturedSignToolArgs | Should -Contain "--azure-key-vault-tenant-id"
+            $capturedSignToolArgs | Should -Contain $testProfileData.tenantId
+            $capturedSignToolArgs | Should -Contain "--azure-key-vault-client-id"
+            $capturedSignToolArgs | Should -Contain $testProfileData.clientId
+            $capturedSignToolArgs | Should -Contain "--azure-key-vault-client-secret"
+            $capturedSignToolArgs | Should -Contain $testSecret
+            $capturedSignToolArgs | Should -Contain $additionalParam1
+            $capturedSignToolArgs | Should -Contain $additionalParam2
+            $capturedSignToolArgs | Should -Contain $script:TestFile1
+
             Should -Not -Invoke Write-Error
-            
-            # Verify Write-Output was called for success
             Should -Invoke Write-Output -ParameterFilter {
                 $InputObject -like "*Successfully signed*"
             }
@@ -127,68 +122,44 @@ Describe "Azure-Sign Script" {
     
     Context "Signing multiple files" {
         It "Processes each file in the Files array" {
-            # Create a block to count the number of sign tool calls
-            $signToolCalls = 0
-            
-            # Mock the & operator to count calls
-            Mock & {
-                if ($args[0] -like "*AzureSignTool.exe") {
-                    $signToolCalls++
-                }
-                $global:LASTEXITCODE = 0
-                return "Successfully signed"
-            }
-            
             # Run the script with multiple files
-            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $TestProfilePath -Files @($TestFile1, $TestFile2) } | Should -Not -Throw
+            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files @($script:TestFile1, $script:TestFile2) } | Should -Not -Throw
             
-            # Verify Write-Error was not called
+            $capturedSignToolArgs = @()
+            foreach($line in [System.IO.File]::ReadLines($tempSignResultFile)) {
+                $capturedSignToolArgs += $line
+            }
+
+            $capturedSignToolArgs | Should -Contain $script:TestFile1
+            $capturedSignToolArgs | Should -Contain $script:TestFile2
+
             Should -Not -Invoke Write-Error
-            
-            # Verify Write-Output was called for success for each file
             Should -Invoke Write-Output -ParameterFilter {
                 $InputObject -like "*Successfully signed*"
-            } -Times 2
+            }
         }
     }
     
     Context "Using additional parameters" {
         It "Includes additional parameters when specified" {
-            # Create a block to capture the parameters
-            $capturedArgs = $null
-            
-            # Mock the & operator to capture parameters
-            Mock & {
-                $capturedArgs = $args
-                $global:LASTEXITCODE = 0
-                return "Successfully signed"
-            }
-            
             # Run the script
-            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $TestProfilePath -Files $TestFile1 } | Should -Not -Throw
+            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
             
-            # Verify Write-Output was called with additional parameters message
             Should -Invoke Write-Output -ParameterFilter {
-                $InputObject -like "*Using additional parameters: -tr http://timestamp.test*"
+                $InputObject -like "*Using additional parameters: $additionalParam1 $additionalParam2*"
             }
         }
     }
     
     Context "Error handling" {
         It "Reports errors when sign tool fails" {
-            # Mock the & operator to simulate a failure
-            Mock & {
-                if ($args[0] -like "*AzureSignTool.exe") {
-                    $global:LASTEXITCODE = 1
-                    return "Signing failed"
-                }
-                return & $args[0] $args[1..$args.Length]
-            }
-            
+            # Create test profile
+            $testProfileData.additionalParams += " --exitCode 123"
+            $testProfileData | ConvertTo-Json | Set-Content $script:TestProfilePath
+
             # Run the script
-            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $TestProfilePath -Files $TestFile1 } | Should -Not -Throw
+            { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
             
-            # Verify Write-Error was called
             Should -Invoke Write-Error -ParameterFilter {
                 $Message -like "*Failed to sign file*"
             }
