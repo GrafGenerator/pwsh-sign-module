@@ -95,16 +95,6 @@ function New-TestProfile {
     return $profilePath
 }
 
-# Mock functions to override specific behaviors
-function Mock-SecureString {
-    param(
-        [string]$InputString = "MockPassword"
-    )
-    
-    $secureString = ConvertTo-SecureString -String $InputString -AsPlainText -Force
-    return $secureString
-}
-
 # Import module for testing - note this is a helper for when you need 
 # to test the module directly rather than the individual functions
 function Import-ModuleForTesting {
