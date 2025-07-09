@@ -16,6 +16,9 @@ $script:TestConfigPath = Join-Path -Path $TestDataPath -ChildPath "config.json"
 $script:TestProfilesDir = Join-Path -Path $TestDataPath -ChildPath "profiles"
 $script:TestFilesDir = Join-Path -Path $TestDataPath -ChildPath "files"
 
+# Test helper scripts paths
+$script:TestSignToolPath = Join-Path $script:TestHelpersPath "SignToolHelper.ps1"
+
 # Function to set up the test environment
 function Initialize-TestEnvironment {
     # Create test directories if they don't exist

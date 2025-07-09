@@ -8,7 +8,6 @@ BeforeAll {
 
     # Create test profile
     $script:TestProfilePath = Join-Path $script:TestProfilesDir "testAzureProfile.json"
-    $script:TestSignToolPath = Join-Path $script:TestHelpersPath "SignToolHelper.ps1"
 
     $testSecret = "MockSecureClientSecret"
     $testSecretSecureString = ConvertTo-SecureString -String $testSecret -AsPlainText -Force

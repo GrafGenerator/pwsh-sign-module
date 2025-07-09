@@ -8,7 +8,6 @@ BeforeAll {
 
     # Create test profile
     $script:TestProfilePath = Join-Path $script:TestProfilesDir "testLocalProfile.json"
-    $script:TestSignToolPath = Join-Path $script:TestHelpersPath "SignToolHelper.ps1"
 
     $testPassword = "MockSecurePassword"
 
