@@ -7,7 +7,7 @@ if ($exitCodeIndex -gt -1) {
 
 $testOutFileIndex = $args.IndexOf("--testOutFile")
 if ($testOutFileIndex -eq -1) {
-    $argsText = $args[0] -join ", "
+    $argsText = $args[0] -join "|"
     throw "Test output file not specified. Passed arguments: $argsText"
 }
 
