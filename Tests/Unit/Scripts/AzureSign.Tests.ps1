@@ -31,7 +31,7 @@ AfterAll {
 
 Describe "Azure-Sign Script" {
     BeforeEach {
-        $tempSignResultFile = Join-Path $script:TempPath "testLocalProfile-signResult-$(New-Guid).txt"
+        $testSession = New-Object TestSessionHelper -ArgumentList $script:TempPath, "testAzureProfile-signResult-"
     
         $additionalParam1 = "-tr"
         $additionalParam2 = "http://timestamp.test"
@@ -44,7 +44,7 @@ Describe "Azure-Sign Script" {
             tenantId = "00000000-0000-0000-0000-000000000000"
             clientId = "11111111-1111-1111-1111-111111111111"
             certificateName = "TestCert"
-            additionalParams = "$additionalParam1 $additionalParam2 --testOutFile $tempSignResultFile"
+            additionalParams = "$additionalParam1 $additionalParam2 --testOutFile $($testSession.FilePath)"
         }
         $testProfileData | ConvertTo-Json | Set-Content $script:TestProfilePath
 
@@ -64,7 +64,7 @@ Describe "Azure-Sign Script" {
     }
     
     AfterEach {
-        Remove-Item $tempSignResultFile -ErrorAction SilentlyContinue
+        Remove-Item $testSession.FilePath -ErrorAction SilentlyContinue
     }
 
     Context "Parameter validation" {
@@ -86,10 +86,7 @@ Describe "Azure-Sign Script" {
             # Run the script
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
             
-            $capturedSignToolArgs = @()
-            foreach($line in [System.IO.File]::ReadLines($tempSignResultFile)) {
-                $capturedSignToolArgs += $line
-            }
+            $capturedSignToolArgs = $testSession.GetCapturedLines()
 
             $capturedCommand = $capturedSignToolArgs[0]
 
@@ -124,10 +121,7 @@ Describe "Azure-Sign Script" {
             # Run the script with multiple files
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files @($script:TestFile1, $script:TestFile2) } | Should -Not -Throw
             
-            $capturedSignToolArgs = @()
-            foreach($line in [System.IO.File]::ReadLines($tempSignResultFile)) {
-                $capturedSignToolArgs += $line
-            }
+            $capturedSignToolArgs = $testSession.GetCapturedLines()
 
             $capturedSignToolArgs | Should -Contain $script:TestFile1
             $capturedSignToolArgs | Should -Contain $script:TestFile2
