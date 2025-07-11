@@ -66,12 +66,16 @@ Describe "Add-SignProfile" {
     
     Context "When adding a new profile with interactive input" {
         BeforeEach {
+            $script:profilePath = Join-Path $TestProfilesDir "newProfile.json"
+
+            Remove-Item $script:profilePath -ErrorAction SilentlyContinue
+
             # Mock Read-Host to return known values
             Mock Read-Host {
                 param($Prompt)
                 switch -Regex ($Prompt) {
                     "profile type" { return "local" }
-                    "sign tool" { return "C:\Test\SignTool.exe" }
+                    "sign tool installation" { return "C:\Test\SignTool.exe" }
                     "certificate" { return "C:\Test\Certificate.pfx" }
                     "additional parameters" { return "/tr http://timestamp.test" }
                 }
@@ -90,20 +94,19 @@ Describe "Add-SignProfile" {
             # Call function without providing ProfilePath (interactive mode)
             Add-SignProfile -ProfileName "newProfile"
             
-            # Verify profile file was created
-            $profilePath = Join-Path $TestProfilesDir "newProfile.json"
-            Test-Path $profilePath | Should -Be $true
+            Test-Path $script:profilePath | Should -Be $true
             
             # Verify config
             $config = Get-Content $TestConfigPath | ConvertFrom-Json
-            $config.profiles.newProfile.path | Should -Be $profilePath
+            $config.profiles.newProfile.path | Should -Be $script:profilePath
             
             # Verify profile contents
-            $profile = Get-Content $profilePath | ConvertFrom-Json
-            $profile.type | Should -Be "local"
-            $profile.signToolPath | Should -Be "C:\Test\SignTool.exe"
-            $profile.certificatePath | Should -Be "C:\Test\Certificate.pfx"
-            $profile.additionalParams | Should -Be "/tr http://timestamp.test"
+            $profileData = Get-Content $script:profilePath | ConvertFrom-Json
+            
+            $profileData.type | Should -Be "local"
+            $profileData.signToolPath | Should -Be "C:\Test\SignTool.exe"
+            $profileData.certificatePath | Should -Be "C:\Test\Certificate.pfx"
+            $profileData.additionalParams | Should -Be "/tr http://timestamp.test"
             
             # Verify secure input file was created
             $secureInputPath = Join-Path $TestProfilesDir "newProfile-pwd"
