@@ -2,6 +2,8 @@ BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
     
+    . $script:ScriptsPath\common.ps1
+
     # Import required private functions
     . "$ModuleRoot\Private\ConfigFunctions.ps1"
     . "$ModuleRoot\Private\SecurityFunctions.ps1"
@@ -15,35 +17,20 @@ BeforeAll {
     # Override script variables for testing
     $script:CONFIG_FILE = $TestConfigPath
     $script:PROFILES_DIR = $TestProfilesDir
+
+    # Mock Write-Error to capture errors
+    Mock Write-Error {}
+    Mock Write-Warning {}
 }
 
 AfterAll {
-    # Clean up
     Remove-TestEnvironment
 }
 
 Describe "Export-SignedExecutable" {
     BeforeEach {
-        # Clean up before each test
-        if (Test-Path $TestConfigPath) { Remove-Item -Path $TestConfigPath -Force }
-        if (Test-Path $TestProfilesDir) { Remove-Item -Path $TestProfilesDir -Recurse -Force }
-        
-        # Initialize test environment
-        Initialize-TestEnvironment
-        
-        # Create test profiles directory
-        New-Item -Path $TestProfilesDir -ItemType Directory -Force | Out-Null
-        
-        # Create test script directory
-        $scriptsDir = Join-Path $ModuleRoot "Scripts"
-        if (-not (Test-Path $scriptsDir)) {
-            New-Item -Path $scriptsDir -ItemType Directory -Force | Out-Null
-        }
-        
-        # Create test files directory
-        $testFilesDir = Join-Path $TestDataPath "files"
-        New-Item -Path $testFilesDir -ItemType Directory -Force | Out-Null
-        
+        $testSession = New-Object TestSessionHelper -ArgumentList $script:TempPath, "testExport-signResult-"
+
         # Create a test .exe file
         $testExePath = Join-Path $testFilesDir "test.exe"
         "dummy content" | Set-Content -Path $testExePath
@@ -52,40 +39,59 @@ Describe "Export-SignedExecutable" {
         $testTxtPath = Join-Path $testFilesDir "test.txt"
         "dummy content" | Set-Content -Path $testTxtPath
         
+        $testSecureContent = "MockSecureContent"
+        $testSecureContentSecureString = ConvertTo-SecureString -String $testSecureContent -AsPlainText -Force
+
         # Create test profiles and add to config
         $config = @{ profiles = @{} }
         
         # Local profile
-        $localProfilePath = Join-Path $TestProfilesDir "localProfile.json"
-        @{ 
+        $testLocalProfile = @{ 
             type = "local"
-            signToolPath = "C:\Test\SignTool.exe"
+            signToolPath = $script:TestSignToolPath
             certificatePath = "C:\Test\Certificate.pfx"
-        } | ConvertTo-Json | Set-Content $localProfilePath
-        "MockSecureContent" | Set-Content (Join-Path $TestProfilesDir "localProfile-pwd")
+            additionalParams = "--testOutFile $($testSession.FilePath)"
+        }
+        $localProfilePath = Join-Path $TestProfilesDir "localProfile.json"
+        $testLocalProfile | ConvertTo-Json | Set-Content $localProfilePath
+
+        $testSecureContent | Set-Content (Join-Path $TestProfilesDir "localProfile-pwd")
         $config.profiles["localProfile"] = @{ path = $localProfilePath }
         
         # Azure profile
-        $azureProfilePath = Join-Path $TestProfilesDir "azureProfile.json"
-        @{ 
+        $testAzureProfile = @{ 
             type = "azure"
-            signToolPath = "C:\Test\AzureSignTool.exe"
+            signToolPath = $script:TestSignToolPath
             keyVaultUrl = "https://test.vault.azure.net/"
             tenantId = "00000000-0000-0000-0000-000000000000"
             clientId = "11111111-1111-1111-1111-111111111111"
             certificateName = "TestCert"
-        } | ConvertTo-Json | Set-Content $azureProfilePath
-        "MockSecureContent" | Set-Content (Join-Path $TestProfilesDir "azureProfile-kvs")
+            additionalParams = "--testOutFile $($testSession.FilePath)"
+        }
+        $azureProfilePath = Join-Path $TestProfilesDir "azureProfile.json"
+        $testAzureProfile | ConvertTo-Json | Set-Content $azureProfilePath
+
+        $testSecureContent | Set-Content (Join-Path $TestProfilesDir "azureProfile-kvs")
         $config.profiles["azureProfile"] = @{ path = $azureProfilePath }
         
         # Save config
         $config | ConvertTo-Json | Set-Content $TestConfigPath
         
-        # Mock script file creation has been removed to prevent overwriting original scripts.
-        # Script invocation will be mocked directly in relevant tests using Pester's Mock command.
-        
-        # Mock Write-Error to capture errors
-        Mock Write-Error {}
+        # Set up the test for each context
+        Mock Convert-SecureStringToPlainText {
+            param(
+                [System.Security.SecureString]$SecureString
+            )
+            return $testSecureContent
+        }
+
+        Mock ConvertTo-SecureString {
+            return $testSecureContentSecureString
+        }
+    }
+
+    AfterEach {
+        Remove-Item $testSession.FilePath -ErrorAction SilentlyContinue
     }
     
     Context "When profile doesn't exist" {
@@ -101,7 +107,7 @@ Describe "Export-SignedExecutable" {
             
             Export-SignedExecutable -ProfileName "localProfile" -Files $nonExistentPath
             
-            Should -Invoke Write-Error -ParameterFilter {
+            Should -Invoke Write-Warning -ParameterFilter {
                 $Message -like "*File not found*"
             }
         }
@@ -113,7 +119,7 @@ Describe "Export-SignedExecutable" {
             
             Export-SignedExecutable -ProfileName "localProfile" -Files $testTxtPath
             
-            Should -Invoke Write-Error -ParameterFilter {
+            Should -Invoke Write-Warning -ParameterFilter {
                 $Message -like "*File is not an executable*"
             }
         }
@@ -121,77 +127,57 @@ Describe "Export-SignedExecutable" {
     
     Context "When using a local profile" {
         It "Calls the local signing script with correct parameters" {
-            $testExePath = Join-Path $TestDataPath "files\test.exe"
-            $localSignScriptPath = Join-Path $ModuleRoot "Scripts\local-sign.ps1"
-            
-            $script:calledScriptPathFromMock = $null
-            $script:actualProfilePathFromMock = $null
-            $script:actualFilesFromMock = $null
-            
-            Mock & {
-                param($command) # First argument is the command
-                $passedArgs = $args[1..($args.Length-1)]
+            $testFilePath = "files\test.exe"
+            $testPathCmdlet = Get-Command Test-Path -CommandType Cmdlet
+            Mock Test-Path {
+                param(
+                    [string[]]$Path
+                )
 
-                if ($command -eq $localSignScriptPath) {
-                    $script:calledScriptPathFromMock = $command
-                    $params = @{}
-                    for ($i = 0; $i -lt $passedArgs.Length; $i += 2) {
-                        $paramName = $passedArgs[$i].ToLower().TrimStart('-')
-                        $params[$paramName] = $passedArgs[$i+1]
-                    }
-                    $script:actualProfilePathFromMock = $params['profilepath']
-                    $script:actualFilesFromMock = $params['files']
-                    Write-Output "Mocked local-sign.ps1 called for $($params['files'])"
-                    $global:LASTEXITCODE = 0 
-                } else {
-                    Microsoft.PowerShell.Core\& $args
+                if ($Path -contains $testFilePath) {
+                    return $true
                 }
+
+                return & $testPathCmdlet -Path $Path
             }
-            
-            Export-SignedExecutable -ProfileName "localProfile" -Files $testExePath
-            
-            $script:calledScriptPathFromMock | Should -Be $localSignScriptPath
-            $script:actualProfilePathFromMock | Should -Be (Join-Path $TestProfilesDir "localProfile.json")
-            $script:actualFilesFromMock | Should -BeExactly @($testExePath)
-            Should -Not -Invoke Write-Error
+
+            Export-SignedExecutable -ProfileName "localProfile" -Files $testFilePath
+
+            $capturedSignToolArgs = $testSession.GetCapturedLines()
+            $capturedCommand = $capturedSignToolArgs[0]
+
+            $capturedCommand | Should -Be $testLocalProfile.signToolPath
+            $capturedSignToolArgs | Should -Contain $testFilePath
+
+            Should -Not -Invoke Write-Warning
         }
     }
     
     Context "When using an azure profile" {
         It "Calls the azure signing script with correct parameters" {
-            $testExePath = Join-Path $TestDataPath "files\test.exe"
-            $azureSignScriptPath = Join-Path $ModuleRoot "Scripts\azure-sign.ps1"
+            $testFilePath = "files\test.exe"
+            $testPathCmdlet = Get-Command Test-Path -CommandType Cmdlet
+            Mock Test-Path {
+                param(
+                    [string[]]$Path
+                )
 
-            $script:calledScriptPathFromMock = $null
-            $script:actualProfilePathFromMock = $null
-            $script:actualFilesFromMock = $null
-
-            Mock & {
-                param($command) # First argument is the command
-                $passedArgs = $args[1..($args.Length-1)]
-
-                if ($command -eq $azureSignScriptPath) {
-                    $script:calledScriptPathFromMock = $command
-                    $params = @{}
-                    for ($i = 0; $i -lt $passedArgs.Length; $i += 2) {
-                        $paramName = $passedArgs[$i].ToLower().TrimStart('-')
-                        $params[$paramName] = $passedArgs[$i+1]
-                    }
-                    $script:actualProfilePathFromMock = $params['profilepath']
-                    $script:actualFilesFromMock = $params['files']
-                    Write-Output "Mocked azure-sign.ps1 called for $($params['files'])"
-                    $global:LASTEXITCODE = 0 
-                } else {
-                    Microsoft.PowerShell.Core\& $args
+                if ($Path -contains $testFilePath) {
+                    return $true
                 }
+
+                return & $testPathCmdlet -Path $Path
             }
 
-            Export-SignedExecutable -ProfileName "azureProfile" -Files $testExePath
+            Export-SignedExecutable -ProfileName "azureProfile" -Files $testFilePath
 
-            $script:calledScriptPathFromMock | Should -Be $azureSignScriptPath
-            $script:actualProfilePathFromMock | Should -Be (Join-Path $TestProfilesDir "azureProfile.json")
-            $script:actualFilesFromMock | Should -BeExactly @($testExePath)
-            Should -Not -Invoke Write-Error
+            $capturedSignToolArgs = $testSession.GetCapturedLines()
+            $capturedCommand = $capturedSignToolArgs[0]
+
+            $capturedCommand | Should -Be $testLocalProfile.signToolPath
+            $capturedSignToolArgs | Should -Contain $testFilePath
+
+            Should -Not -Invoke Write-Warning
         }
     }
 }
