@@ -9,13 +9,13 @@ BeforeAll {
     # Create test profile
     $script:TestProfilePath = Join-Path $script:TestProfilesDir "testLocalProfile.json"
 
-    $testPassword = "MockSecurePassword"
+    $script:testPassword = "MockSecurePassword"
 
     # Create test password file
-    $testPasswordPath = Join-Path $script:TestProfilesDir "testLocalProfile-pwd"
-    $testPassword | Set-Content $testPasswordPath
+    $script:testPasswordPath = Join-Path $script:TestProfilesDir "testLocalProfile-pwd"
+    $script:testPassword | Set-Content $script:testPasswordPath
 
-    $testPasswordSecureString = ConvertTo-SecureString -String $testPassword -AsPlainText -Force
+    $script:testPasswordSecureString = ConvertTo-SecureString -String $testPassword -AsPlainText -Force
     
     # Test file names
     $script:TestFile1 = Join-Path $script:TestFilesDir "test1.exe"
@@ -51,11 +51,11 @@ Describe "Local-Sign Script" {
             param(
                 [System.Security.SecureString]$SecureString
             )
-            return $testPassword
+            return $script:testPassword
         }
 
         Mock ConvertTo-SecureString {
-            return $testPasswordSecureString
+            return $script:testPasswordSecureString
         }
     }
     
@@ -94,7 +94,7 @@ Describe "Local-Sign Script" {
             $capturedSignToolArgs | Should -Contain "/f"
             $capturedSignToolArgs | Should -Contain $testProfileData.certificatePath
             $capturedSignToolArgs | Should -Contain "/p"
-            $capturedSignToolArgs | Should -Contain $testPassword
+            $capturedSignToolArgs | Should -Contain $script:testPassword
             $capturedSignToolArgs | Should -Contain $additionalParam1
             $capturedSignToolArgs | Should -Contain $additionalParam2
             $capturedSignToolArgs | Should -Contain $script:TestFile1

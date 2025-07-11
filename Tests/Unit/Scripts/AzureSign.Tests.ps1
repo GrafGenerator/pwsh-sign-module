@@ -9,12 +9,12 @@ BeforeAll {
     # Create test profile
     $script:TestProfilePath = Join-Path $script:TestProfilesDir "testAzureProfile.json"
 
-    $testSecret = "MockSecureClientSecret"
-    $testSecretSecureString = ConvertTo-SecureString -String $testSecret -AsPlainText -Force
+    $script:testSecret = "MockSecureClientSecret"
+    $script:testSecretSecureString = ConvertTo-SecureString -String $script:testSecret -AsPlainText -Force
 
     # Create test client secret file
-    $testSecretPath = Join-Path $script:TestProfilesDir "testAzureProfile-kvs"
-    $testSecret | Set-Content $testSecretPath
+    $script:testSecretPath = Join-Path $script:TestProfilesDir "testAzureProfile-kvs"
+    $script:testSecret | Set-Content $script:testSecretPath
 
     # Test file names
     $script:TestFile1 = Join-Path $script:TestFilesDir "test1.exe"
@@ -55,11 +55,11 @@ Describe "Azure-Sign Script" {
             param(
                 [System.Security.SecureString]$SecureString
             )
-            return $testSecret
+            return $script:testSecret
         }
 
         Mock ConvertTo-SecureString {
-            return $testSecretSecureString
+            return $script:testSecretSecureString
         }
     }
     
@@ -104,7 +104,7 @@ Describe "Azure-Sign Script" {
             $capturedSignToolArgs | Should -Contain "--azure-key-vault-client-id"
             $capturedSignToolArgs | Should -Contain $testProfileData.clientId
             $capturedSignToolArgs | Should -Contain "--azure-key-vault-client-secret"
-            $capturedSignToolArgs | Should -Contain $testSecret
+            $capturedSignToolArgs | Should -Contain $script:testSecret
             $capturedSignToolArgs | Should -Contain $additionalParam1
             $capturedSignToolArgs | Should -Contain $additionalParam2
             $capturedSignToolArgs | Should -Contain $script:TestFile1
