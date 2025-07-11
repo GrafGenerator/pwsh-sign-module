@@ -49,101 +49,21 @@ function Remove-TestEnvironment {
     }
 }
 
-# Function to create a test profile
-function New-TestProfile {
-    param (
-        [Parameter(Mandatory)]
-        [string]$ProfileName,
-        
-        [Parameter(Mandatory)]
-        [ValidateSet('local', 'azure')]
-        [string]$ProfileType
-    )
-    
-    $profilePath = Join-Path -Path $script:TestProfilesDir -ChildPath "$ProfileName.json"
-    
-    if ($ProfileType -eq 'local') {
-        $profileData = @{
-            type = 'local'
-            signToolPath = 'C:\Test\SignTool.exe'
-            certificatePath = 'C:\Test\Certificate.pfx'
-            additionalParams = '/tr http://timestamp.test'
-        }
-    }
-    else {
-        $profileData = @{
-            type = 'azure'
-            signToolPath = 'C:\Test\AzureSignTool.exe'
-            keyVaultUrl = 'https://testvault.vault.azure.net/'
-            tenantId = '00000000-0000-0000-0000-000000000000'
-            clientId = '11111111-1111-1111-1111-111111111111'
-            certificateName = 'TestCert'
-            additionalParams = '-tr http://timestamp.test'
-        }
-    }
-    
-    $profileData | ConvertTo-Json | Set-Content -Path $profilePath
-    
-    # Create mock secure inputs
-    if ($ProfileType -eq 'local') {
-        $secureFileName = "$ProfileName-pwd"
-    }
-    else {
-        $secureFileName = "$ProfileName-kvs"
-    }
-    
-    $secureFilePath = Join-Path -Path $script:TestProfilesDir -ChildPath $secureFileName
-    "MockSecureContent" | Set-Content -Path $secureFilePath
-    
-    return $profilePath
-}
+class TestSessionHelper {
+    [guid] $SessionId
+    [string] $FilePath
 
-# Import module for testing - note this is a helper for when you need 
-# to test the module directly rather than the individual functions
-function Import-ModuleForTesting {
-    # Save original values
-    $originalConfigFile = $null
-    $originalProfilesDir = $null
-    
-    # Load the module
-    if (Get-Module -Name $script:ModuleName) {
-        Remove-Module -Name $script:ModuleName -Force
+    TestSessionHelper([string] $testFilesPath, [string] $filePrefix) {
+        $this.SessionId = [guid]::NewGuid();
+        $this.FilePath = Join-Path $testFilesPath "$filePrefix$($this.SessionId).txt"
     }
-    
-    # Import the module with a different scope
-    Import-Module -Name $script:ModulePath -Force
-    
-    # Override script variables in the module
-    $module = Get-Module -Name $script:ModuleName
-    
-    # Get the original values for later restoration
-    $originalConfigFile = & $module { $script:CONFIG_FILE }
-    $originalProfilesDir = & $module { $script:PROFILES_DIR }
-    
-    # Set the test paths
-    & $module { 
-        $script:CONFIG_FILE = $using:TestConfigPath
-        $script:PROFILES_DIR = $using:TestProfilesDir
-    }
-    
-    # Return original values for restoration
-    return @{
-        ConfigFile = $originalConfigFile
-        ProfilesDir = $originalProfilesDir
-    }
-}
 
-# Restore original module settings
-function Restore-ModuleSettings {
-    param (
-        [hashtable]$OriginalSettings
-    )
-    
-    $module = Get-Module -Name $script:ModuleName
-    
-    # Restore the original settings
-    & $module { 
-        $script:CONFIG_FILE = $using:OriginalSettings.ConfigFile
-        $script:PROFILES_DIR = $using:OriginalSettings.ProfilesDir
+    [string[]] GetCapturedLines() {
+        $lines = @()
+        foreach($line in [System.IO.File]::ReadLines($this.FilePath)) {
+            $lines += $line
+        }
+
+        return $lines
     }
 }
