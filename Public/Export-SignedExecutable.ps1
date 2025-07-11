@@ -17,7 +17,8 @@ function Export-SignedExecutable {
         $profilePath = $config.profiles[$ProfileName].path
         $signingProfile = Get-Content $profilePath | ConvertFrom-Json
 
-        $scriptPath = Join-Path $PSScriptRoot "..\\Scripts\\$(if ($signingProfile.type -eq 'local') { 'local-sign.ps1' } else { 'azure-sign.ps1' })"
+        $scriptName = if ($signingProfile.type -eq 'local') { 'local-sign.ps1' } else { 'azure-sign.ps1' }
+        $scriptPath = Join-Path $PSScriptRoot "..\\Scripts\\$scriptName"
         if (-not (Test-Path $scriptPath)) {
             throw "Signing script not found: $scriptPath"
         }
@@ -26,11 +27,11 @@ function Export-SignedExecutable {
     process {
         foreach ($file in $Files) {
             if (-not (Test-Path $file)) {
-                Write-Error "File not found: $file"
+                Write-Warning "File not found: $file"
                 continue
             }
             if ([System.IO.Path]::GetExtension($file) -ne '.exe') {
-                Write-Error "File is not an executable: $file"
+                Write-Warning "File is not an executable: $file"
                 continue
             }
         }
