@@ -33,7 +33,7 @@ Describe "SecurityFunctions" {
             @{ type = "local" } | ConvertTo-Json | Set-Content -Path $testProfilePath
             
             # Create a test secure string
-            $testSecureString = ConvertTo-SecureString "TestPassword" -AsPlainText -Force
+            $script:testSecureString = ConvertTo-SecureString "TestPassword" -AsPlainText -Force
         }
         
         AfterEach {
@@ -47,7 +47,7 @@ Describe "SecurityFunctions" {
             $testAlias = "pwd"
             
             # Call function
-            Save-SecureInput -ProfileName "testProfile" -ProfilePath $testProfilePath -InputAlias $testAlias -SecureInput $testSecureString
+            Save-SecureInput -ProfileName "testProfile" -ProfilePath $testProfilePath -InputAlias $testAlias -SecureInput $script:testSecureString
             
             # Verify file was created
             $secureFilePath = Join-Path $TestProfilesDir "testProfile-pwd"
@@ -61,7 +61,7 @@ Describe "SecurityFunctions" {
         It "Throws exception for invalid profile name" {
             # This should throw an exception
             { 
-                Save-SecureInput -ProfileName "invalid name" -ProfilePath $testProfilePath -InputAlias "pwd" -SecureInput $testSecureString 
+                Save-SecureInput -ProfileName "invalid name" -ProfilePath $testProfilePath -InputAlias "pwd" -SecureInput $script:testSecureString 
             } | Should -Throw
         }
     }
@@ -81,8 +81,8 @@ Describe "SecurityFunctions" {
             @{ type = "local" } | ConvertTo-Json | Set-Content -Path $testProfilePath
             
             # Create a test secure string and save it
-            $testSecureString = ConvertTo-SecureString "TestPassword" -AsPlainText -Force
-            $testSecureString | ConvertFrom-SecureString | Set-Content $testSecureFilePath
+            $script:testSecureString = ConvertTo-SecureString "TestPassword" -AsPlainText -Force
+            $script:testSecureString | ConvertFrom-SecureString | Set-Content $testSecureFilePath
         }
         
         AfterEach {

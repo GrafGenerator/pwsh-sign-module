@@ -108,8 +108,8 @@ Describe "Update-SignProfile" {
             
             # Verify profile was updated
             $profilePath = Join-Path $TestProfilesDir "localProfile.json"
-            $profile = Get-Content $profilePath | ConvertFrom-Json
-            $profile.additionalParams | Should -Be "/tr http://new.timestamp.test"
+            $profileData = Get-Content $profilePath | ConvertFrom-Json
+            $profileData.additionalParams | Should -Be "/tr http://new.timestamp.test"
             
             # Verify secure input file was updated
             $secureInputPath = Join-Path $TestProfilesDir "localProfile-pwd"
@@ -145,8 +145,8 @@ Describe "Update-SignProfile" {
             
             # Verify profile was updated
             $profilePath = Join-Path $TestProfilesDir "azureProfile.json"
-            $profile = Get-Content $profilePath | ConvertFrom-Json
-            $profile.additionalParams | Should -Be "-tr http://new.timestamp.test"
+            $profileData = Get-Content $profilePath | ConvertFrom-Json
+            $profileData.additionalParams | Should -Be "-tr http://new.timestamp.test"
             
             # Verify secure input file was updated
             $secureInputPath = Join-Path $TestProfilesDir "azureProfile-kvs"
