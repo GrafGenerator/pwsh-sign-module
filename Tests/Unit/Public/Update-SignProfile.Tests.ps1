@@ -1,3 +1,6 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '', Scope='Function')]
+param()
+
 BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
