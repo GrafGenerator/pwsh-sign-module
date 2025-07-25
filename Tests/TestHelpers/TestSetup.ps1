@@ -44,8 +44,10 @@ function Initialize-TestEnvironment {
 
 # Function to clean up the test environment
 function Remove-TestEnvironment {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
     if (Test-Path $script:TestDataPath) {
-        Remove-Item -Path $script:TestDataPath -Recurse -Force
+        Remove-Item -Path $script:TestDataPath -Recurse -Force -WhatIf:$WhatIfPreference
     }
 }
 

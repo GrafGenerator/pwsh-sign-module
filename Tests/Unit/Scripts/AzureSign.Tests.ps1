@@ -50,9 +50,6 @@ Describe "Azure-Sign Script" {
 
         # Set up the test for each context
         Mock Convert-SecureStringToPlainText {
-            param(
-                [System.Security.SecureString]$SecureString
-            )
             return $script:testSecret
         }
 
