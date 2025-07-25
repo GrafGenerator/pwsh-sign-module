@@ -99,9 +99,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup PowerShell
-      uses: actions/setup-powershell@v1
-      
     - name: Install PSScriptAnalyzer
       shell: pwsh
       run: |
@@ -143,9 +140,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Setup PowerShell
-      uses: actions/setup-powershell@v1
       
     - name: Validate module manifest
       shell: pwsh
