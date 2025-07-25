@@ -4,11 +4,11 @@ function Convert-SecureStringToPlainText {
         [System.Security.SecureString]$SecureString
     )
 
-    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToGlobalAllocUnicode($SecureString)
     try {
-        return [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringUni($bstr)
     }
     finally {
-        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) | Out-Null
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeGlobalAllocUnicode($bstr) | Out-Null
     }
 }
