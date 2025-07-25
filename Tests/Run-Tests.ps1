@@ -44,6 +44,9 @@ if (-not $SkipScripts) {
 $pesterConfig = New-PesterConfiguration
 $pesterConfig.Run.Path = $testPaths
 $pesterConfig.Output.Verbosity = 'Detailed'
+$pesterConfig.TestResult.OutputFormat = "NUnitXml"
+$pesterConfig.TestResult.OutputPath = "testResults.xml"
+$pesterConfig.TestResult.Enabled = $True
 
 # Run the tests
 Invoke-Pester -Configuration $pesterConfig

@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PowerShell
+      uses: actions/setup-powershell@v1
+      
+    - name: Install Pester
+      shell: pwsh
+      run: |
+        Write-Host "Installing Pester module..."
+        Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
+        Import-Module Pester
+        Write-Host "Pester version: $(Get-Module Pester).Version"
+        
+    - name: Run tests
+      shell: pwsh
+      run: |
+        Write-Host "Running SignModule tests..."
+        cd Tests
+        .\Run-Tests.ps1
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: |
+          Tests/testResults.xml
+          Tests/**/*.xml
+        retention-days: 30
+        
+  test-cross-platform:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install PowerShell (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        # Update package list
+        sudo apt-get update
+        # Install prerequisites
+        sudo apt-get install -y wget apt-transport-https software-properties-common
+        # Download Microsoft signing key
+        wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+        # Register Microsoft repository
+        sudo dpkg -i packages-microsoft-prod.deb
+        # Update package list
+        sudo apt-get update
+        # Install PowerShell
+        sudo apt-get install -y powershell
+        
+    - name: Install PowerShell (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        # Install PowerShell via Homebrew
+        brew install --cask powershell
+        
+    - name: Install Pester
+      shell: pwsh
+      run: |
+        Write-Host "Installing Pester module..."
+        Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
+        Import-Module Pester
+        Write-Host "Pester version: $(Get-Module Pester).Version"
+        
+    - name: Run tests (Cross-platform compatibility check)
+      shell: pwsh
+      run: |
+        Write-Host "Running SignModule tests on ${{ matrix.os }}..."
+        Write-Host "Note: Some tests may fail due to Windows-specific dependencies"
+        cd Tests
+        try {
+          .\Run-Tests.ps1
+        } catch {
+          Write-Warning "Some tests failed on ${{ matrix.os }}: $($_.Exception.Message)"
+          Write-Host "This is expected for Windows-specific functionality"
+        }
+        
+  lint:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PowerShell
+      uses: actions/setup-powershell@v1
+      
+    - name: Install PSScriptAnalyzer
+      shell: pwsh
+      run: |
+        Write-Host "Installing PSScriptAnalyzer..."
+        Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
+        
+    - name: Run PSScriptAnalyzer
+      shell: pwsh
+      run: |
+        Write-Host "Running PSScriptAnalyzer..."
+        $results = Invoke-ScriptAnalyzer -Path . -Recurse -ReportSummary
+        
+        if ($results) {
+          Write-Host "PSScriptAnalyzer found issues:"
+          $results | Format-Table -AutoSize
+          
+          # Count issues by severity
+          $errors = $results | Where-Object Severity -eq 'Error'
+          $warnings = $results | Where-Object Severity -eq 'Warning'
+          $info = $results | Where-Object Severity -eq 'Information'
+          
+          Write-Host "Summary:"
+          Write-Host "  Errors: $($errors.Count)"
+          Write-Host "  Warnings: $($warnings.Count)"
+          Write-Host "  Information: $($info.Count)"
+          
+          # Fail the build if there are errors
+          if ($errors.Count -gt 0) {
+            Write-Error "Build failed due to PSScriptAnalyzer errors"
+            exit 1
+          }
+        } else {
+          Write-Host "No PSScriptAnalyzer issues found!"
+        }
+        
+  module-validation:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup PowerShell
+      uses: actions/setup-powershell@v1
+      
+    - name: Validate module manifest
+      shell: pwsh
+      run: |
+        Write-Host "Validating module manifest..."
+        try {
+          $manifest = Test-ModuleManifest -Path "SignModule.psd1"
+          Write-Host "Module manifest is valid!"
+          Write-Host "Module: $($manifest.Name)"
+          Write-Host "Version: $($manifest.Version)"
+          Write-Host "Author: $($manifest.Author)"
+          Write-Host "PowerShell Version: $($manifest.PowerShellVersion)"
+          Write-Host "Exported Functions: $($manifest.ExportedFunctions.Keys -join ', ')"
+        } catch {
+          Write-Error "Module manifest validation failed: $($_.Exception.Message)"
+          exit 1
+        }
+        
+    - name: Import module test
+      shell: pwsh
+      run: |
+        Write-Host "Testing module import..."
+        try {
+          Import-Module ".\SignModule.psd1" -Force
+          $commands = Get-Command -Module SignModule
+          Write-Host "Successfully imported SignModule!"
+          Write-Host "Available commands:"
+          $commands | ForEach-Object { Write-Host "  - $($_.Name)" }
+        } catch {
+          Write-Error "Failed to import module: $($_.Exception.Message)"
+          exit 1
+        }

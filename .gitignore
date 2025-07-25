@@ -2,4 +2,4 @@ profiles
 config.json
 
 Tests/TestData/files
-testResults.xml
+Tests/testResults.xml
