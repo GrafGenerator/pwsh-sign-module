@@ -1,14 +1,14 @@
 BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
-    
+
     # Import required functions
     . "$ModuleRoot\Private\ConfigFunctions.ps1"
     . "$ModuleRoot\Private\SecurityFunctions.ps1"
-    
+
     # Set up the test environment
     Initialize-TestEnvironment
-    
+
     # Override script variables for testing
     $script:CONFIG_FILE = $TestConfigPath
     $script:PROFILES_DIR = $TestProfilesDir
