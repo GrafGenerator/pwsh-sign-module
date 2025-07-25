@@ -48,28 +48,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Install PowerShell (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        # Update package list
-        sudo apt-get update
-        # Install prerequisites
-        sudo apt-get install -y wget apt-transport-https software-properties-common
-        # Download Microsoft signing key
-        wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-        # Register Microsoft repository
-        sudo dpkg -i packages-microsoft-prod.deb
-        # Update package list
-        sudo apt-get update
-        # Install PowerShell
-        sudo apt-get install -y powershell
-        
-    - name: Install PowerShell (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        # Install PowerShell via Homebrew
-        brew install --cask powershell
         
     - name: Install Pester
       shell: pwsh
