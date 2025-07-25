@@ -15,8 +15,8 @@
     PrivateData = @{
         PSData = @{
             Tags = @('Signing', 'CodeSigning', 'Azure', 'Certificate', 'AzureKeyVault', 'Secret', 'Pipeline', 'AzureDevOps', 'PipelineSigning', 'AzureKeyVaultSigning')
-            LicenseUri = 'https://github.com/nikitaivanov/pwsh-sign-module/blob/main/LICENSE'
-            ProjectUri = 'https://github.com/nikitaivanov/pwsh-sign-module'
+            LicenseUri = 'https://github.com/GrafGenerator/pwsh-sign-module/blob/main/LICENSE'
+            ProjectUri = 'https://github.com/GrafGenerator/pwsh-sign-module'
         }
     }
 }

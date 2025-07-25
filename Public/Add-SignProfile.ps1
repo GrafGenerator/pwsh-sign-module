@@ -1,3 +1,85 @@
+<#
+.SYNOPSIS
+Creates a new code signing profile for use with SignModule.
+
+.DESCRIPTION
+The Add-SignProfile function creates a new signing profile that can be used to sign executable files.
+Profiles can be created interactively (by providing configuration details through prompts) or by
+importing an existing profile JSON file. Profiles support both local certificate signing and
+Azure Key Vault integration.
+
+.PARAMETER ProfileName
+Specifies the name for the new signing profile. This name will be used to reference the profile
+in other SignModule commands. Profile names must be unique and cannot contain invalid characters.
+
+.PARAMETER ProfilePath
+Optional path to an existing profile JSON file to import. If not specified, the function will
+prompt for profile configuration details interactively. The JSON file should contain the
+profile configuration in the expected format.
+
+.INPUTS
+None. You cannot pipe objects to Add-SignProfile.
+
+.OUTPUTS
+None. This function does not return any objects.
+
+.EXAMPLE
+Add-SignProfile -ProfileName "Production"
+
+Creates a new profile named "Production" using interactive prompts to configure the signing details.
+You will be prompted to specify whether this is a local certificate or Azure Key Vault profile,
+and then provide the necessary configuration details.
+
+.EXAMPLE
+Add-SignProfile -ProfileName "Staging" -ProfilePath "C:\Certs\staging-profile.json"
+
+Creates a new profile named "Staging" by importing configuration from an existing JSON file.
+The JSON file should contain the profile configuration in the expected format.
+
+.EXAMPLE
+Add-SignProfile -ProfileName "LocalCert"
+# When prompted, select 'local' type and provide:
+# - Signing tool path: C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe
+# - Certificate path: C:\Certificates\MyCert.pfx
+# - Certificate password: (entered securely)
+# - Timestamp URL: http://timestamp.digicert.com
+
+Example of creating a local certificate profile with typical Windows SDK paths.
+
+.EXAMPLE
+Add-SignProfile -ProfileName "AzureKV"
+# When prompted, select 'azure' type and provide:
+# - Azure SignTool path: C:\Tools\azuresigntool.exe
+# - Key Vault URL: https://myvault.vault.azure.net/
+# - Tenant ID: 12345678-1234-1234-1234-123456789012
+# - Client ID: 87654321-4321-4321-4321-210987654321
+# - Client Secret: (entered securely)
+# - Certificate Name: CodeSigningCert
+
+Example of creating an Azure Key Vault profile for cloud-based signing.
+
+.NOTES
+File Name      : Add-SignProfile.ps1
+Author         : GrafGenerator
+Prerequisite   : PowerShell 5.1 or later
+Copyright 2025 : GrafGenerator
+
+Profile configuration files are stored in %PSModulePath%\SignModule\profiles\ and contain
+non-sensitive configuration data only. Sensitive information like passwords and secrets
+are stored separately using PowerShell SecureString encryption.
+
+.LINK
+Update-SignProfile
+
+.LINK
+Remove-SignProfile
+
+.LINK
+Export-SignedExecutable
+
+.LINK
+https://github.com/GrafGenerator/pwsh-sign-module
+#>
 function Add-SignProfile {
     [CmdletBinding()]
     param(
