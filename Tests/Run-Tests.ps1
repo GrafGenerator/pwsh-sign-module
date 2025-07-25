@@ -14,7 +14,7 @@ param(
 
 # Install Pester if not already installed
 if (-not (Get-Module -ListAvailable -Name Pester)) {
-    Write-Host "Pester module not found. Installing..."
+    Write-Output "Pester module not found. Installing..."
     Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
 }
 

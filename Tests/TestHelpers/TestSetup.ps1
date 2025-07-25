@@ -8,7 +8,7 @@ $script:ScriptsPath = Join-Path -Path $ModuleRoot -ChildPath "Scripts"
 $script:ModulePath = Join-Path -Path $ModuleRoot -ChildPath "$ModuleName.psm1"
 $script:TestsPath = (Resolve-Path (Join-Path -Path $PSScriptRoot -ChildPath "..")).Path
 $script:TestDataPath = Join-Path -Path $TestsPath -ChildPath "TestData"
-$script:TempPath = Join-Path -Path $TestDataPath -ChildPath "temp"  
+$script:TempPath = Join-Path -Path $TestDataPath -ChildPath "temp"
 $script:TestHelpersPath = Join-Path -Path $TestsPath -ChildPath "TestHelpers"
 
 # Test profile paths

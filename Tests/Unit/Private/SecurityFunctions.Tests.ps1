@@ -60,8 +60,8 @@ Describe "SecurityFunctions" {
 
         It "Throws exception for invalid profile name" {
             # This should throw an exception
-            { 
-                Save-SecureInput -ProfileName "invalid name" -ProfilePath $testProfilePath -InputAlias "pwd" -SecureInput $script:testSecureString 
+            {
+                Save-SecureInput -ProfileName "invalid name" -ProfilePath $testProfilePath -InputAlias "pwd" -SecureInput $script:testSecureString
             } | Should -Throw
         }
     }

@@ -46,7 +46,7 @@ Describe "Export-SignedExecutable" {
         $config = @{ profiles = @{} }
 
         # Local profile
-        $testLocalProfile = @{ 
+        $testLocalProfile = @{
             type = "local"
             signToolPath = $script:TestSignToolPath
             certificatePath = "C:\Test\Certificate.pfx"
@@ -59,7 +59,7 @@ Describe "Export-SignedExecutable" {
         $config.profiles["localProfile"] = @{ path = $localProfilePath }
 
         # Azure profile
-        $testAzureProfile = @{ 
+        $testAzureProfile = @{
             type = "azure"
             signToolPath = $script:TestSignToolPath
             keyVaultUrl = "https://test.vault.azure.net/"
