@@ -114,10 +114,10 @@ function Add-SignProfile {
         if ($profileType -eq 'local') {
             $profileData.signToolPath = Read-Host "Enter path to local sign tool installation"
             $profileData.certificatePath = Read-Host "Enter path to local certificate"
-            
+
             $securePassword = Read-Host "Enter certificate password" -AsSecureString
             Save-SecureInput -ProfileName $ProfileName -ProfilePath $targetProfilePath -InputAlias "pwd" -SecureInput $securePassword
-            
+
             $additionalParams = Read-Host "Enter additional parameters for sign tool (e.g., '/tr http://timestamp.server' - optional)"
             if (-not [string]::IsNullOrWhiteSpace($additionalParams)) {
                 $profileData.additionalParams = $additionalParams
@@ -132,7 +132,7 @@ function Add-SignProfile {
 
             $secureSecret = Read-Host "Enter client secret" -AsSecureString
             Save-SecureInput -ProfileName $ProfileName -ProfilePath $targetProfilePath -InputAlias "kvs" -SecureInput $secureSecret
-            
+
             $additionalParams = Read-Host "Enter additional parameters for sign tool (e.g., '-tr http://timestamp.server' - optional)"
             if (-not [string]::IsNullOrWhiteSpace($additionalParams)) {
                 $profileData.additionalParams = $additionalParams

@@ -97,13 +97,13 @@ function Update-SignProfile {
             $updateMade = $true
         }
     }
-    
+
     $updateParams = Read-Host "Update additional parameters? (y/n)"
     if ($updateParams -eq 'y') {
         $currentParams = if ($profileData.ContainsKey('additionalParams')) { $profileData.additionalParams } else { "" }
         Write-Host "Current additional parameters: $currentParams"
         $additionalParams = Read-Host "Enter new additional parameters (leave empty to remove)"
-        
+
         if ([string]::IsNullOrWhiteSpace($additionalParams)) {
             if ($profileData.ContainsKey('additionalParams')) {
                 $profileData.Remove('additionalParams')
@@ -115,7 +115,7 @@ function Update-SignProfile {
             $updateMade = $true
         }
     }
-    
+
     if ($updateMade) {
         $profileData | ConvertTo-Json | Set-Content $profilePath
         Write-Host "Profile '$ProfileName' updated successfully"

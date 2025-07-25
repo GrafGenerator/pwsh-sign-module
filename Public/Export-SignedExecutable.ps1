@@ -95,7 +95,7 @@ function Export-SignedExecutable {
     param(
         [Parameter(Mandatory)]
         [string]$ProfileName,
-        
+
         [Parameter(Mandatory, ValueFromPipeline)]
         [string[]]$Files
     )

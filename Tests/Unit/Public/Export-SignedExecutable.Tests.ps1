@@ -1,19 +1,19 @@
 BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
-    
+
     . $script:ScriptsPath\common.ps1
 
     # Import required private functions
     . "$ModuleRoot\Private\ConfigFunctions.ps1"
     . "$ModuleRoot\Private\SecurityFunctions.ps1"
-    
+
     # Import the function being tested
     . "$ModuleRoot\Public\Export-SignedExecutable.ps1"
-    
+
     # Set up the test environment
     Initialize-TestEnvironment
-    
+
     # Override script variables for testing
     $script:CONFIG_FILE = $TestConfigPath
     $script:PROFILES_DIR = $TestProfilesDir
@@ -34,17 +34,17 @@ Describe "Export-SignedExecutable" {
         # Create a test .exe file
         $testExePath = Join-Path $testFilesDir "test.exe"
         "dummy content" | Set-Content -Path $testExePath
-        
+
         # Create a test non-exe file
         $testTxtPath = Join-Path $testFilesDir "test.txt"
         "dummy content" | Set-Content -Path $testTxtPath
-        
+
         $testSecureContent = "MockSecureContent"
         $testSecureContentSecureString = ConvertTo-SecureString -String $testSecureContent -AsPlainText -Force
 
         # Create test profiles and add to config
         $config = @{ profiles = @{} }
-        
+
         # Local profile
         $testLocalProfile = @{ 
             type = "local"
@@ -57,7 +57,7 @@ Describe "Export-SignedExecutable" {
 
         $testSecureContent | Set-Content (Join-Path $TestProfilesDir "localProfile-pwd")
         $config.profiles["localProfile"] = @{ path = $localProfilePath }
-        
+
         # Azure profile
         $testAzureProfile = @{ 
             type = "azure"
@@ -73,10 +73,10 @@ Describe "Export-SignedExecutable" {
 
         $testSecureContent | Set-Content (Join-Path $TestProfilesDir "azureProfile-kvs")
         $config.profiles["azureProfile"] = @{ path = $azureProfilePath }
-        
+
         # Save config
         $config | ConvertTo-Json | Set-Content $TestConfigPath
-        
+
         # Set up the test for each context
         Mock Convert-SecureStringToPlainText {
             param(
@@ -93,38 +93,38 @@ Describe "Export-SignedExecutable" {
     AfterEach {
         Remove-Item $testSession.FilePath -ErrorAction SilentlyContinue
     }
-    
+
     Context "When profile doesn't exist" {
         It "Throws an error" {
             $testExePath = Join-Path $TestDataPath "files\test.exe"
             { Export-SignedExecutable -ProfileName "nonExistentProfile" -Files $testExePath } | Should -Throw
         }
     }
-    
+
     Context "When file doesn't exist" {
         It "Writes an error and continues" {
             $nonExistentPath = Join-Path $TestDataPath "files\nonexistent.exe"
-            
+
             Export-SignedExecutable -ProfileName "localProfile" -Files $nonExistentPath
-            
+
             Should -Invoke Write-Warning -ParameterFilter {
                 $Message -like "*File not found*"
             }
         }
     }
-    
+
     Context "When file is not an executable" {
         It "Writes an error and continues" {
             $testTxtPath = Join-Path $TestDataPath "files\test.txt"
-            
+
             Export-SignedExecutable -ProfileName "localProfile" -Files $testTxtPath
-            
+
             Should -Invoke Write-Warning -ParameterFilter {
                 $Message -like "*File is not an executable*"
             }
         }
     }
-    
+
     Context "When using a local profile" {
         It "Calls the local signing script with correct parameters" {
             $testFilePath = "files\test.exe"
@@ -152,7 +152,7 @@ Describe "Export-SignedExecutable" {
             Should -Not -Invoke Write-Warning
         }
     }
-    
+
     Context "When using an azure profile" {
         It "Calls the azure signing script with correct parameters" {
             $testFilePath = "files\test.exe"

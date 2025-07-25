@@ -23,14 +23,14 @@
 
 .EXAMPLE
     Remove-SignProfile -ProfileName 'MyLocalCertProfile'
-    
+
     Removes the profile named 'MyLocalCertProfile' from the configuration. If the profile file
     is in the default profiles directory, it will also be deleted along with any associated
     secure files.
 
 .EXAMPLE
     Remove-SignProfile -ProfileName 'ExternalProfile' -RemoveFile
-    
+
     Removes the profile named 'ExternalProfile' from the configuration and deletes the profile
     file and associated secure files regardless of their location.
 
@@ -39,9 +39,9 @@
     Author         : GrafGenerator
     Prerequisite   : PowerShell 5.1 or later
     Copyright 2025 : GrafGenerator
-    
+
     This function will throw an error if the specified profile does not exist in the configuration.
-    
+
     Profile files located in the default profiles directory (%PSModulePath%\SignModule\Profiles)
     are always deleted, while profile files outside this directory are only deleted when the
     -RemoveFile switch is used.
@@ -63,11 +63,11 @@ function Remove-SignProfile {
     param(
         [Parameter(Mandatory)]
         [string]$ProfileName,
-        
+
         [Parameter()]
         [switch]$RemoveFile
     )
-    
+
     Test-ProfileName -ProfileName $ProfileName
 
     $config = Get-Config

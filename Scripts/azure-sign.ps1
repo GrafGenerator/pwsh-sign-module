@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory)]
     [string]$ProfilePath,
-    
+
     [Parameter(Mandatory)]
     [string[]]$Files
 )

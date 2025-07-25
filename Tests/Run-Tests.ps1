@@ -4,10 +4,10 @@
 param(
     [Parameter()]
     [switch]$SkipPrivateFunctions,
-    
+
     [Parameter()]
     [switch]$SkipPublicFunctions,
-    
+
     [Parameter()]
     [switch]$SkipScripts
 )

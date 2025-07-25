@@ -25,11 +25,11 @@ function Initialize-TestEnvironment {
     if (-not (Test-Path $script:TestDataPath)) {
         New-Item -Path $script:TestDataPath -ItemType Directory -Force | Out-Null
     }
-    
+
     if (-not (Test-Path $script:TempPath)) {
         New-Item -Path $script:TempPath -ItemType Directory -Force | Out-Null
-    }   
-    
+    }
+
     if (-not (Test-Path $script:TestProfilesDir)) {
         New-Item -Path $script:TestProfilesDir -ItemType Directory -Force | Out-Null
     }
@@ -37,7 +37,7 @@ function Initialize-TestEnvironment {
     if (-not (Test-Path $script:TestFilesDir)) {
         New-Item -Path $script:TestFilesDir -ItemType Directory -Force | Out-Null
     }
-    
+
     # Create an empty test config file
     @{ profiles = @{} } | ConvertTo-Json | Set-Content -Path $script:TestConfigPath
 }

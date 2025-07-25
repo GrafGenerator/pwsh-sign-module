@@ -1,17 +1,17 @@
 BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
-    
+
     # Import required private functions
     . "$ModuleRoot\Private\ConfigFunctions.ps1"
     . "$ModuleRoot\Private\SecurityFunctions.ps1"
-    
+
     # Import the function being tested
     . "$ModuleRoot\Public\Add-SignProfile.ps1"
-    
+
     # Set up the test environment
     Initialize-TestEnvironment
-    
+
     # Override script variables for testing
     $script:CONFIG_FILE = $TestConfigPath
     $script:PROFILES_DIR = $TestProfilesDir
@@ -27,11 +27,11 @@ Describe "Add-SignProfile" {
         # Clean up before each test
         if (Test-Path $TestConfigPath) { Remove-Item -Path $TestConfigPath -Force }
         if (Test-Path $TestProfilesDir) { Remove-Item -Path $TestProfilesDir -Recurse -Force }
-        
+
         # Initialize test environment
         Initialize-TestEnvironment
     }
-    
+
     Context "When adding a new profile with provided profile path" {
         BeforeEach {
             # Create a test profile file
@@ -40,30 +40,30 @@ Describe "Add-SignProfile" {
             $testProfilePath = Join-Path $testProfileDir "external-profile.json"
             @{ type = "local"; signToolPath = "C:\Test\SignTool.exe" } | ConvertTo-Json | Set-Content -Path $testProfilePath
         }
-        
+
         It "Adds the profile to the configuration" {
             # Call function
             Add-SignProfile -ProfileName "externalProfile" -ProfilePath $testProfilePath
-            
+
             # Verify config
             $config = Get-Content $TestConfigPath | ConvertFrom-Json
             $config.profiles.externalProfile.path | Should -Be $testProfilePath
         }
-        
+
         It "Throws when profile name already exists" {
             # Add profile first
             Add-SignProfile -ProfileName "externalProfile" -ProfilePath $testProfilePath
-            
+
             # Try to add again with same name
             { Add-SignProfile -ProfileName "externalProfile" -ProfilePath $testProfilePath } | Should -Throw
         }
-        
+
         It "Throws when profile file doesn't exist" {
             $nonExistentPath = Join-Path $testProfileDir "non-existent.json"
             { Add-SignProfile -ProfileName "nonExistent" -ProfilePath $nonExistentPath } | Should -Throw
         }
     }
-    
+
     Context "When adding a new profile with interactive input" {
         BeforeEach {
             $script:profilePath = Join-Path $TestProfilesDir "newProfile.json"
@@ -80,7 +80,7 @@ Describe "Add-SignProfile" {
                     "additional parameters" { return "/tr http://timestamp.test" }
                 }
             }
-            
+
             # Mock SecureString input
             Mock Read-Host {
                 param($Prompt)
@@ -89,25 +89,25 @@ Describe "Add-SignProfile" {
                 }
             } -ParameterFilter { $AsSecureString }
         }
-        
+
         It "Creates a new profile file and adds it to configuration" {
             # Call function without providing ProfilePath (interactive mode)
             Add-SignProfile -ProfileName "newProfile"
-            
+
             Test-Path $script:profilePath | Should -Be $true
-            
+
             # Verify config
             $config = Get-Content $TestConfigPath | ConvertFrom-Json
             $config.profiles.newProfile.path | Should -Be $script:profilePath
-            
+
             # Verify profile contents
             $profileData = Get-Content $script:profilePath | ConvertFrom-Json
-            
+
             $profileData.type | Should -Be "local"
             $profileData.signToolPath | Should -Be "C:\Test\SignTool.exe"
             $profileData.certificatePath | Should -Be "C:\Test\Certificate.pfx"
             $profileData.additionalParams | Should -Be "/tr http://timestamp.test"
-            
+
             # Verify secure input file was created
             $secureInputPath = Join-Path $TestProfilesDir "newProfile-pwd"
             Test-Path $secureInputPath | Should -Be $true

@@ -25,27 +25,27 @@ Describe "ConfigFunctions" {
             if (Test-Path $TestConfigPath) { Remove-Item -Path $TestConfigPath -Force }
             if (Test-Path $TestProfilesDir) { Remove-Item -Path $TestProfilesDir -Recurse -Force }
         }
-    
+
         It "Creates config file if it doesn't exist" {
             # Verify config file doesn't exist
             Test-Path $TestConfigPath | Should -Be $false
-        
+
             # Call function
             Initialize-ModuleConfig
-        
+
             # Verify config file was created with correct content
             Test-Path $TestConfigPath | Should -Be $true
             $config = Get-Content $TestConfigPath | ConvertFrom-Json
             $config.profiles | Should -BeOfType [PSCustomObject]
         }
-    
+
         It "Creates profiles directory if it doesn't exist" {
             # Verify profiles directory doesn't exist
             Test-Path $TestProfilesDir | Should -Be $false
-        
+
             # Call function
             Initialize-ModuleConfig
-        
+
             # Verify profiles directory was created
             Test-Path $TestProfilesDir | Should -Be $true
         }
@@ -56,17 +56,17 @@ Describe "ConfigFunctions" {
             # Set up a known config file
             @{ profiles = @{ test = @{ path = "test.json" } } } | ConvertTo-Json | Set-Content -Path $TestConfigPath
         }
-    
+
         It "Returns config as hashtable when config file exists" {
             $config = Get-Config
             $config | Should -BeOfType [System.Collections.Hashtable]
             $config.profiles.test.path | Should -Be "test.json"
         }
-    
+
         It "Returns empty config when config file doesn't exist" {
             # Remove config file
             Remove-Item -Path $TestConfigPath -Force
-        
+
             $config = Get-Config
             $config | Should -BeOfType [System.Collections.Hashtable]
             $config.profiles | Should -BeOfType [System.Collections.Hashtable]
@@ -77,9 +77,9 @@ Describe "ConfigFunctions" {
     Context "Save-Config" {
         It "Saves config to file" {
             $testConfig = @{ profiles = @{ newTest = @{ path = "newTest.json" } } }
-        
+
             Save-Config -Config $testConfig
-        
+
             # Verify file contents
             $savedConfig = Get-Content $TestConfigPath | ConvertFrom-Json
             $savedConfig.profiles.newTest.path | Should -Be "newTest.json"
@@ -94,7 +94,7 @@ Describe "ConfigFunctions" {
             { Test-ProfileName -ProfileName "valid-name" } | Should -Not -Throw
             { Test-ProfileName -ProfileName "valid123" } | Should -Not -Throw
         }
-    
+
         It "Throws exception for invalid profile names" {
             # These should throw exceptions
             { Test-ProfileName -ProfileName "invalid name" } | Should -Throw

@@ -1,7 +1,7 @@
 BeforeAll {
     # Import test setup
     . $PSScriptRoot\..\..\TestHelpers\TestSetup.ps1
-    
+
     . $script:ScriptsPath\common.ps1
 
     Initialize-TestEnvironment
@@ -19,7 +19,7 @@ BeforeAll {
     # Test file names
     $script:TestFile1 = Join-Path $script:TestFilesDir "test1.exe"
     $script:TestFile2 = Join-Path $script:TestFilesDir "test2.exe"
-    
+
     # Mock external commands
     Mock Write-Error {}
     Mock Write-Output {}
@@ -32,10 +32,10 @@ AfterAll {
 Describe "Azure-Sign Script" {
     BeforeEach {
         $testSession = New-Object TestSessionHelper -ArgumentList $script:TempPath, "testAzureProfile-signResult-"
-    
+
         $additionalParam1 = "-tr"
         $additionalParam2 = "http://timestamp.test"
-        
+
         # Create test profile
         $testProfileData = @{
             type = "azure"
@@ -47,8 +47,6 @@ Describe "Azure-Sign Script" {
             additionalParams = "$additionalParam1 $additionalParam2 --testOutFile $($testSession.FilePath)"
         }
         $testProfileData | ConvertTo-Json | Set-Content $script:TestProfilePath
-
-        
 
         # Set up the test for each context
         Mock Convert-SecureStringToPlainText {
@@ -62,7 +60,7 @@ Describe "Azure-Sign Script" {
             return $script:testSecretSecureString
         }
     }
-    
+
     AfterEach {
         Remove-Item $testSession.FilePath -ErrorAction SilentlyContinue
     }
@@ -75,17 +73,17 @@ Describe "Azure-Sign Script" {
                 type = "local"
                 signToolPath = $script:TestSignToolPath
             } | ConvertTo-Json | Set-Content $localProfilePath
-            
+
             # Test script with local profile - should throw
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $localProfilePath -Files $TestFile1 } | Should -Throw "*not an Azure signing profile*"
         }
     }
-    
+
     Context "Signing a single file" {
         It "Calls the sign tool with correct parameters" {
             # Run the script
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
-            
+
             $capturedSignToolArgs = $testSession.GetCapturedLines()
 
             $capturedCommand = $capturedSignToolArgs[0]
@@ -115,12 +113,12 @@ Describe "Azure-Sign Script" {
             }
         }
     }
-    
+
     Context "Signing multiple files" {
         It "Processes each file in the Files array" {
             # Run the script with multiple files
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files @($script:TestFile1, $script:TestFile2) } | Should -Not -Throw
-            
+
             $capturedSignToolArgs = $testSession.GetCapturedLines()
 
             $capturedSignToolArgs | Should -Contain $script:TestFile1
@@ -132,18 +130,18 @@ Describe "Azure-Sign Script" {
             }
         }
     }
-    
+
     Context "Using additional parameters" {
         It "Includes additional parameters when specified" {
             # Run the script
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
-            
+
             Should -Invoke Write-Output -ParameterFilter {
                 $InputObject -like "*Using additional parameters: $additionalParam1 $additionalParam2*"
             }
         }
     }
-    
+
     Context "Error handling" {
         It "Reports errors when sign tool fails" {
             # Create test profile
@@ -152,7 +150,7 @@ Describe "Azure-Sign Script" {
 
             # Run the script
             { . "$ModuleRoot\Scripts\azure-sign.ps1" -ProfilePath $script:TestProfilePath -Files $script:TestFile1 } | Should -Not -Throw
-            
+
             Should -Invoke Write-Error -ParameterFilter {
                 $Message -like "*Failed to sign file*"
             }

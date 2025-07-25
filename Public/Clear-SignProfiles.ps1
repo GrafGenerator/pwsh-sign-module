@@ -11,7 +11,7 @@
 
     When the -RemoveFile switch is specified, all profile files will be deleted,
     including those outside the default profiles directory.
-    
+
     This function is useful for resetting the SignModule to a clean state or for
     performing a complete reconfiguration of all signing profiles.
 
@@ -22,13 +22,13 @@
 
 .EXAMPLE
     Clear-SignProfiles
-    
+
     Removes all profiles from the configuration and deletes all profile files in the
     default profiles directory. External profile files are not deleted.
 
 .EXAMPLE
     Clear-SignProfiles -RemoveFile
-    
+
     Removes all profiles from the configuration and deletes all profile files,
     including those outside the default profiles directory.
 
@@ -37,11 +37,11 @@
     Author         : GrafGenerator
     Prerequisite   : PowerShell 5.1 or later
     Copyright 2025 : GrafGenerator
-    
+
     This function will remove all profile entries from the configuration. By default,
     only profile files in the default profiles directory (%PSModulePath%\SignModule\Profiles)
     are deleted. Use the -RemoveFile switch to delete all profile files regardless of location.
-    
+
     Related secure files associated with the profiles will also be removed when
     the profile files are deleted.
 
@@ -65,17 +65,17 @@ function Clear-SignProfiles {
     )
 
     $config = Get-Config
-    
+
     $profilesDirectoryPath = (Get-Item $script:PROFILES_DIR).FullName;
 
     # Handle profiles outside of profiles directory first
     $externalProfiles = $config.profiles.GetEnumerator() | Where-Object { -not (Get-Item $_.Value.path).FullName.StartsWith($profilesDirectoryPath) }
     $externalProfileNames = @()
-    
+
     foreach ($profileData in $externalProfiles) {
         $profileName = $profileData.Key
         $profilePath = $profileData.Value.path
-        
+
         if ($RemoveFile) {
             $profileFile = Get-Item $profilePath
             
@@ -102,7 +102,7 @@ function Clear-SignProfiles {
             $newProfiles[$name] = $config.profiles[$name]
         }
     }
-    
+
     # Update the configuration
     $config.profiles = $newProfiles
     Save-Config $config
